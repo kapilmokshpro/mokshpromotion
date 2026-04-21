@@ -5,7 +5,7 @@ import { createHash } from "crypto"
 import { sendEmail } from "@/lib/email"
 import { getDiscountInquiryAdminEmailTemplate } from "@/lib/email-templates"
 import { generateSecureToken } from "@/lib/discount-utils"
-import { getAppBaseUrl, getSuperAdminEmail } from "@/lib/runtime-config"
+import { getAppBaseUrl, getInfoEmail } from "@/lib/runtime-config"
 
 export async function POST(req: Request) {
     try {
@@ -45,20 +45,10 @@ export async function POST(req: Request) {
             }
         })
 
-        // 4. Find Admin to notify
-        // optimize: pick one or send to general admin email. Priority: SUPER_ADMIN, then ADMIN
-        let adminUser = await db.user.findFirst({
-            where: { role: "SUPER_ADMIN" }
-        })
-
-        if (!adminUser) {
-            adminUser = await db.user.findFirst({
-                where: { role: "ADMIN" }
-            })
-        }
+        // 4. Use INFO inbox for inquiry notifications/tokens
+        const adminEmail = getInfoEmail()
 
         // 5. Generate secure token for direct access
-        const adminEmail = adminUser?.email || getSuperAdminEmail()
         const { token, hash: tokenHash, expiresAt: tokenExpiresAt } = generateSecureToken(
             inquiry.id,
             adminEmail
@@ -92,7 +82,7 @@ export async function POST(req: Request) {
 
         await sendEmail({ to: adminEmail, subject, html })
 
-        console.log(`[DEV] Admin OTP for Inquiry ${inquiry.id}: ${otp}`) // Log for dev convenience
+        console.log(`[DEV] Info OTP for Inquiry ${inquiry.id}: ${otp}`) // Log for dev convenience
 
         return NextResponse.json({ success: true, inquiryId: inquiry.id })
 

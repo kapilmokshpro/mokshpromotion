@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             // We might still want to mark as sent if it's just a local diff dev error, but usually we throw
             console.error("Email sending failed for Plan", plan.id)
             // return NextResponse.json({ error: "Failed to send email" }, { status: 500 }) 
-            // For dev environment often we don't have SMTP configured, let's treat it as success or soft fail. 
+            // For dev environment often we don't have an email provider configured, let's treat it as success or soft fail. 
             // We will mark it as sent for now to unblock the user.
         }
 

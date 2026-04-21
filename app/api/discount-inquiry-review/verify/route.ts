@@ -6,7 +6,7 @@ import { getDiscountInquiryClientTemplate } from "@/lib/email-templates"
 import { verifySecureToken } from "@/lib/discount-utils"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { getSuperAdminEmail } from "@/lib/runtime-config"
+import { getInfoEmail } from "@/lib/runtime-config"
 
 export async function POST(req: Request) {
     try {
@@ -28,15 +28,7 @@ export async function POST(req: Request) {
         }
 
         // 1. Verify Token
-        let adminUser = await db.user.findFirst({
-            where: { role: "SUPER_ADMIN" }
-        })
-        if (!adminUser) {
-            adminUser = await db.user.findFirst({
-                where: { role: "ADMIN" }
-            })
-        }
-        const adminEmail = adminUser?.email || getSuperAdminEmail()
+        const adminEmail = getInfoEmail()
 
         const isValidToken = verifySecureToken(
             inquiryId,
@@ -64,7 +56,7 @@ export async function POST(req: Request) {
         }
 
         const session = await getServerSession(authOptions)
-        const approvedByUserId = session?.user?.id ? Number(session.user.id) : adminUser?.id
+        const approvedByUserId = session?.user?.id ? Number(session.user.id) : null
 
         // OTP Verification
         if (!inquiry.adminOtp) {

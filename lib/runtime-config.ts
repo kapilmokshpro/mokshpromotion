@@ -1,5 +1,6 @@
 const DEFAULT_DEV_APP_URL = "http://localhost:3000"
 const DEFAULT_ADMIN_EMAIL = "admin@mokshpromotion.com"
+const DEFAULT_INFO_EMAIL = "info@mokshpromotion.com"
 
 const normalizeBaseUrl = (value?: string) => {
     const trimmed = (value || "").trim()
@@ -29,4 +30,8 @@ export const getAppBaseUrl = (req?: Request) => {
 
 export const getSuperAdminEmail = () => {
     return (process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || DEFAULT_ADMIN_EMAIL).trim()
+}
+
+export const getInfoEmail = () => {
+    return (process.env.INFO_EMAIL || process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || DEFAULT_INFO_EMAIL).trim()
 }

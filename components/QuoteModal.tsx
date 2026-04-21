@@ -23,7 +23,8 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
         name: "",
         email: "",
         phone: "",
-        city: ""
+        city: "",
+        notes: "",
     })
 
     if (!isOpen) return null
@@ -165,6 +166,17 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
                                 placeholder="e.g. Mumbai"
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700">Notes / Requirements</label>
+                        <textarea
+                            value={formData.notes}
+                            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[88px]"
+                            placeholder="Any campaign note, preferred start date, budget, or special instruction..."
+                            maxLength={1000}
+                        />
                     </div>
 
                     <div className="bg-blue-50 p-3 rounded text-xs text-blue-700 mt-2">

@@ -1,7 +1,7 @@
 
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
-import { getAppBaseUrl } from "@/lib/runtime-config"
+import { getAppBaseUrl, getInfoEmail } from "@/lib/runtime-config"
 import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
             </ul>
         `
         await sendEmail({
-            to: process.env.SMTP_USER || "admin@example.com",
+            to: getInfoEmail(),
             subject: `New Order Received - ${project.title}`,
             html: adminHtml
         })

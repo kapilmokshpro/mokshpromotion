@@ -1,7 +1,7 @@
 import { db } from "@/lib/db"
 import { NextResponse } from "next/server"
 import { verifySecureToken } from "@/lib/discount-utils"
-import { getSuperAdminEmail } from "@/lib/runtime-config"
+import { getInfoEmail } from "@/lib/runtime-config"
 
 /**
  * GET /api/discount-inquiry-review/[id]
@@ -28,20 +28,8 @@ export async function GET(
             return new NextResponse("Inquiry not found", { status: 404 })
         }
 
-        // Verify token
-        // We use the admin's email that was used during creation
-        // Find one admin user or use default
-        let adminUser = await db.user.findFirst({
-            where: { role: "SUPER_ADMIN" }
-        })
-
-        if (!adminUser) {
-            adminUser = await db.user.findFirst({
-                where: { role: "ADMIN" }
-            })
-        }
-
-        const adminEmail = adminUser?.email || getSuperAdminEmail()
+        // Verify token against INFO inbox identity used during creation
+        const adminEmail = getInfoEmail()
 
         if (
             !(inquiry as any).tokenHash ||
