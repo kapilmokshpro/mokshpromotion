@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   title: "Moksh Promotion - Strategic Media. Lasting Impact.",
   description: "Empowering brands through innovative OOH campaigns and powerful media solutions across India.",
   icons: {
-    icon: "/images/mfavicon.png",
-    shortcut: "/images/mfavicon.png",
-    apple: "/images/mfavicon.png",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 
