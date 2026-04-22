@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail } from "@/lib/email"
 import { getDiscountInquiryClientTemplate } from "@/lib/email-templates"
+import { buildSiteSelectionAttachment } from "@/lib/site-selection-attachment"
 
 export async function POST(req: Request) {
     // Audit: Check Admin Auth
@@ -94,8 +95,10 @@ export async function POST(req: Request) {
 
         // Send Email to Client
         let itemsHtml = ""
+        let parsedItems: unknown[] = []
         try {
             const items = JSON.parse(inquiry.cartSnapshot)
+            if (Array.isArray(items)) parsedItems = items
             itemsHtml = items.map((item: any) => `
                 <tr style="border-bottom: 1px solid #eee;">
                     <td style="padding:10px;">
@@ -118,7 +121,16 @@ export async function POST(req: Request) {
             itemsHtmlTable: itemsHtml
         })
 
-        await sendEmail({ to: inquiry.clientEmail, subject, html })
+        const selectionAttachment = buildSiteSelectionAttachment(parsedItems, {
+            filenamePrefix: `selected-sites-discount-${inquiry.id}`,
+        })
+
+        await sendEmail({
+            to: inquiry.clientEmail,
+            subject,
+            html,
+            attachments: selectionAttachment ? [selectionAttachment] : undefined,
+        })
 
         return NextResponse.json({ success: true, status: "APPROVED" })
 

@@ -15,10 +15,27 @@ const loginSchema = z.object({
     password: z.string().min(1, "Password is required"),
 })
 
+const normalizeCallbackPath = (value: string | null, fallbackPath: string) => {
+    if (!value) return fallbackPath
+
+    if (value.startsWith("/") && !value.startsWith("//")) {
+        return value
+    }
+
+    try {
+        const parsed = new URL(value)
+        const path = `${parsed.pathname}${parsed.search}${parsed.hash}`
+        return path.startsWith("/") ? path : fallbackPath
+    } catch {
+        return fallbackPath
+    }
+}
+
 function ClientLoginForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const callbackUrl = searchParams.get("callbackUrl") || "/"
+    const callbackUrl = searchParams.get("callbackUrl")
+    const callbackPath = normalizeCallbackPath(callbackUrl, "/")
     const registered = searchParams.get("registered") === "true"
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
@@ -40,12 +57,14 @@ function ClientLoginForm() {
                 redirect: false,
                 email: values.email,
                 password: values.password,
+                callbackUrl: callbackPath,
             })
 
             if (res?.error) {
                 setError("Invalid email or password")
             } else {
-                router.push(callbackUrl)
+                const targetPath = normalizeCallbackPath(res?.url || callbackPath, "/")
+                router.replace(targetPath)
                 router.refresh()
             }
         } catch (err) {

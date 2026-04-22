@@ -2,6 +2,7 @@
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
 import { getAppBaseUrl, getInfoEmail } from "@/lib/runtime-config"
+import { buildSiteSelectionAttachment } from "@/lib/site-selection-attachment"
 import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
@@ -73,6 +74,9 @@ export async function POST(req: Request) {
         }) */
 
         // 6. Emails
+        const selectionAttachment = buildSiteSelectionAttachment(items, {
+            filenamePrefix: `selected-sites-order-${project.id}`,
+        })
 
         // Client Email
         const clientHtml = `
@@ -90,7 +94,8 @@ export async function POST(req: Request) {
         await sendEmail({
             to: user.email,
             subject: `Order Confirmation - ${project.title}`,
-            html: clientHtml
+            html: clientHtml,
+            attachments: selectionAttachment ? [selectionAttachment] : undefined,
         })
 
         // Admin/Sales Email
@@ -107,7 +112,8 @@ export async function POST(req: Request) {
         await sendEmail({
             to: getInfoEmail(),
             subject: `New Order Received - ${project.title}`,
-            html: adminHtml
+            html: adminHtml,
+            attachments: selectionAttachment ? [selectionAttachment] : undefined,
         })
 
         return NextResponse.json({ success: true, projectId: project.id })

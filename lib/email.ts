@@ -3,6 +3,10 @@ type SendEmailParams = {
     subject: string
     html: string
     replyTo?: string
+    attachments?: Array<{
+        filename: string
+        content: string
+    }>
 }
 
 type SendEmailResult =
@@ -40,7 +44,7 @@ const getPrimaryFrom = () => {
     return '"Moksh Promotion Ltd." <no-reply@mokshpromotion.com>'
 }
 
-export async function sendEmail({ to, subject, html, replyTo }: SendEmailParams) {
+export async function sendEmail({ to, subject, html, replyTo, attachments }: SendEmailParams) {
     console.log(`Attempting to send email to ${to}`)
 
     const resendApiKey = getResendApiKey()
@@ -57,6 +61,10 @@ export async function sendEmail({ to, subject, html, replyTo }: SendEmailParams)
         subject: string
         html: string
         reply_to?: string
+        attachments?: Array<{
+            filename: string
+            content: string
+        }>
     } = {
         from,
         to: [to],
@@ -65,6 +73,7 @@ export async function sendEmail({ to, subject, html, replyTo }: SendEmailParams)
     }
 
     if (replyTo) payload.reply_to = replyTo
+    if (attachments && attachments.length > 0) payload.attachments = attachments
 
     try {
         const response = await fetch("https://api.resend.com/emails", {

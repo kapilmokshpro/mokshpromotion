@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client"
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
 import { getInfoEmail } from "@/lib/runtime-config"
+import { buildSiteSelectionAttachment } from "@/lib/site-selection-attachment"
 import { NextResponse } from "next/server"
 
 type QuoteItemInput = {
@@ -203,6 +204,14 @@ export async function POST(req: Request) {
         })
 
         const requestPlan = serviceInterest || "Petrol Pump Media Quote"
+        const selectionAttachment =
+            validItems.length > 0
+                ? buildSiteSelectionAttachment(validItems, {
+                      filenamePrefix: `selected-sites-lead-${lead.id}`,
+                      fallbackCity: city,
+                  })
+                : null
+
         const safeName = escapeHtml(name)
         const safeEmail = escapeHtml(email)
         const safePhone = escapeHtml(phone)
@@ -274,6 +283,7 @@ export async function POST(req: Request) {
             to: getInfoEmail(),
             subject: `New Quote Request from ${name} (${requestPlan})`,
             html: adminHtml,
+            attachments: selectionAttachment ? [selectionAttachment] : undefined,
         })
         if (!adminEmailResult.success) {
             const warning = getEmailWarningMessage("admin", adminEmailResult)
@@ -300,6 +310,7 @@ export async function POST(req: Request) {
                 <br/>
                 <p>Best Regards,<br/>Moksh Promotion Team</p>
             `,
+            attachments: selectionAttachment ? [selectionAttachment] : undefined,
         })
         if (!clientEmailResult.success) {
             const warning = getEmailWarningMessage("client", clientEmailResult)

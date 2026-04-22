@@ -14,10 +14,27 @@ const loginSchema = z.object({
     password: z.string().min(1, "Password is required"),
 })
 
+const normalizeCallbackPath = (value: string | null, fallbackPath: string) => {
+    if (!value) return fallbackPath
+
+    if (value.startsWith("/") && !value.startsWith("//")) {
+        return value
+    }
+
+    try {
+        const parsed = new URL(value)
+        const path = `${parsed.pathname}${parsed.search}${parsed.hash}`
+        return path.startsWith("/") ? path : fallbackPath
+    } catch {
+        return fallbackPath
+    }
+}
+
 function LoginForm() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
+    const callbackUrl = searchParams.get("callbackUrl")
+    const callbackPath = normalizeCallbackPath(callbackUrl, "/dashboard")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
 
@@ -38,11 +55,11 @@ function LoginForm() {
                 redirect: false,
                 email: values.email,
                 password: values.password,
+                callbackUrl: callbackPath,
             })
 
             if (res?.error) {
                 setError("Invalid email or password")
-                setLoading(false)
                 return
             }
 
@@ -55,13 +72,12 @@ function LoginForm() {
 
             if (!session?.user?.role) {
                 setError("Session initialization failed. Please try again.")
-                setLoading(false)
                 return
             }
 
             // Redirect to role-specific dashboard
-            let targetUrl = callbackUrl
-            if (callbackUrl === "/dashboard") {
+            let targetUrl = normalizeCallbackPath(res?.url || callbackPath, "/dashboard")
+            if (targetUrl === "/dashboard") {
                 switch (session.user.role) {
                     case "SUPER_ADMIN":
                         targetUrl = "/dashboard/super-admin"
@@ -83,11 +99,12 @@ function LoginForm() {
                 }
             }
 
-            router.push(targetUrl)
+            router.replace(targetUrl)
             router.refresh()
         } catch (err) {
             console.error(err)
             setError("Something went wrong")
+        } finally {
             setLoading(false)
         }
     }
