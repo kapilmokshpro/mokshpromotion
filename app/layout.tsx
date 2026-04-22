@@ -4,7 +4,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Moksh Promotion - Strategic Media. Lasting Impact.",
-  description: "Empowering brands through innovative OOH campaign’s and powerful media solutions across India.",
+  description: "Empowering brands through innovative OOH campaigns and powerful media solutions across India.",
+  icons: {
+    icon: "/images/mfavicon.png",
+    shortcut: "/images/mfavicon.png",
+    apple: "/images/mfavicon.png",
+  },
 };
 
 export default function RootLayout({
@@ -15,9 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <Providers>
-          {children}
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
