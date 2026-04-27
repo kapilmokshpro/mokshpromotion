@@ -1,45 +1,19 @@
 import CartFooter from "@/components/CartFooter"
-import Image from "next/image"
+import FuelStationMediaSlider from "@/components/FuelStationMediaSlider"
+import fs from "fs/promises"
+import path from "path"
 
-export default function FuelStationMediaPage() {
-    const caseStudies = [
-        {
-            title: "PUNJAB NATIONAL BANK",
-            image: "/images/case-studies/pnb.jpg"
-        },
-        {
-            title: "FIAT CAR",
-            image: "/images/case-studies/fiat.jpg"
-        },
-        {
-            title: "BAJAJ ALLIANZ GENERAL INSURANCE",
-            image: "/images/case-studies/bajaj.jpg"
-        },
-        {
-            title: "CANARA BANK",
-            image: "/images/case-studies/canara.jpg"
-        },
-        {
-            title: "TATA FOUR WHEELER",
-            image: "/images/case-studies/tata-four.jpg"
-        },
-        {
-            title: "OKAYA BATTARIES",
-            image: "/images/case-studies/okaya.jpg"
-        },
-        {
-            title: "TATA EV",
-            image: "/images/case-studies/tata-ev.jpg"
-        },
-        {
-            title: "UTTARAKHAND GRAMIN BANK",
-            image: "/images/case-studies/uttarakhand.jpg"
-        },
-        {
-            title: "COVID-19 AWARENESS",
-            image: "/images/case-studies/covid.jpg"
-        }
-    ]
+export default async function FuelStationMediaPage() {
+    const imageDirectory = path.join(process.cwd(), "public", "images", "fuel-station-media")
+
+    const imageFiles = (await fs.readdir(imageDirectory))
+        .filter((file) => /\.(png|jpe?g|webp|avif)$/i.test(file))
+        .sort((first, second) => first.localeCompare(second))
+
+    const campaigns = imageFiles.map((fileName, index) => ({
+        src: `/images/fuel-station-media/${encodeURIComponent(fileName)}`,
+        alt: `Fuel station campaign ${index + 1}`
+    }))
 
     return (
         <main className="min-h-screen bg-white py-20 pb-24">
@@ -50,31 +24,14 @@ export default function FuelStationMediaPage() {
                     Fuel Station Media
                 </h1>
                 <p className="text-gray-700 text-center mb-12 max-w-3xl mx-auto text-lg">
-                    Maximize your brand's presence with OOH media at fuel stations. Capture attention in high-traffic zones and connect with target audiences through strategically placed, high-visibility branding.
+                    Maximize your brand&apos;s presence with OOH media at fuel stations. Capture attention in high-traffic zones and connect with target audiences through strategically placed, high-visibility branding.
                 </p>
 
                 {/* Our Campaigns Section */}
                 <h2 className="text-3xl font-bold text-[#002147] mb-8 text-center uppercase tracking-wide">
                     Our Campaigns
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 mb-20 max-w-6xl mx-auto">
-                    {caseStudies.map((study, index) => (
-                        <div key={index} className="flex flex-col items-center group">
-                            <h3 className="text-sm font-bold text-[#002147] mb-4 text-center tracking-wide uppercase">
-                                {study.title}
-                            </h3>
-                            <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-md group-hover:shadow-xl transition-all duration-300 transform group-hover:-translate-y-1">
-                                <Image
-                                    src={study.image}
-                                    alt={study.title}
-                                    fill
-                                    className="object-cover"
-                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <FuelStationMediaSlider images={campaigns} />
 
             </div>
             <CartFooter />
