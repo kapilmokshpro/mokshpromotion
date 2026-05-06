@@ -69,7 +69,39 @@ export default function ProjectsTable({ projects }: ProjectsTableProps) {
 
     return (
         <div className="space-y-4">
+            <div className="md:hidden space-y-3">
+                {projects.length === 0 ? (
+                    <div className="py-8">
+                        <EmptyState
+                            title="No projects found"
+                            description="Start by creating a new project."
+                            image={<Building2 className="w-8 h-8 text-gray-300" />}
+                        />
+                    </div>
+                ) : (
+                    projects.map((project) => (
+                        <div key={project.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="text-sm font-semibold text-gray-900">{project.title}</div>
+                                    <div className="text-xs text-gray-500">ID: #{project.originalId}</div>
+                                </div>
+                                <Badge variant={getStatusBadgeVariant(project.status)}>
+                                    {project.status.replace(/_/g, " ")}
+                                </Badge>
+                            </div>
+                            <div className="text-xs text-gray-600">Customer: {project.customerName}</div>
+                            <div className="text-xs text-gray-600">Assignee: {project.assigneeName}</div>
+                            <div>{getPaymentStatusBadge(project.paymentStatus)}</div>
+                            <div className="text-xs text-gray-500">{formatDateInIndia(project.createdAt)}</div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            <div className="hidden md:block">
             <TableShell>
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-100">
                     <thead className="bg-gray-50/50">
                         <tr>
@@ -193,7 +225,9 @@ export default function ProjectsTable({ projects }: ProjectsTableProps) {
                         )}
                     </tbody>
                 </table>
+                </div>
             </TableShell>
+            </div>
 
             {openDiscountModalId && (
                 <DiscountRequestModal

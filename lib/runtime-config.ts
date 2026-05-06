@@ -10,17 +10,38 @@ const normalizeBaseUrl = (value?: string) => {
     return withProtocol.replace(/\/+$/, "")
 }
 
+const isLocalHostUrl = (url: string) => {
+    try {
+        const parsed = new URL(url)
+        return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"
+    } catch {
+        return false
+    }
+}
+
+const buildFromRequestHost = (req?: Request) => {
+    const forwardedHost = req?.headers.get("x-forwarded-host") || req?.headers.get("host")
+    if (!forwardedHost) return ""
+
+    const forwardedProto =
+        req?.headers.get("x-forwarded-proto") ||
+        (forwardedHost.includes("localhost") || forwardedHost.startsWith("127.0.0.1") ? "http" : "https")
+    return `${forwardedProto}://${forwardedHost}`
+}
+
 export const getAppBaseUrl = (req?: Request) => {
     const envBaseUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL)
-    if (envBaseUrl) return envBaseUrl
+    const requestBase = buildFromRequestHost(req)
 
-    const forwardedHost = req?.headers.get("x-forwarded-host") || req?.headers.get("host")
-    if (forwardedHost) {
-        const forwardedProto =
-            req?.headers.get("x-forwarded-proto") ||
-            (forwardedHost.includes("localhost") || forwardedHost.startsWith("127.0.0.1") ? "http" : "https")
-        return `${forwardedProto}://${forwardedHost}`
+    // If env is set to localhost but request is from production domain, prefer request host
+    if (envBaseUrl) {
+        if (requestBase && isLocalHostUrl(envBaseUrl) && !isLocalHostUrl(requestBase)) {
+            return requestBase
+        }
+        return envBaseUrl
     }
+
+    if (requestBase) return requestBase
 
     const vercelBaseUrl = normalizeBaseUrl(process.env.VERCEL_URL)
     if (vercelBaseUrl) return vercelBaseUrl

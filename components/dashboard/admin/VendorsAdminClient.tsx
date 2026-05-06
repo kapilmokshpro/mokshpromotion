@@ -106,7 +106,27 @@ export default function VendorsAdminClient({ initialVendors }: { initialVendors:
                 </div>
             </form>
 
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="md:hidden space-y-3">
+                {initialVendors.map((vendor) => (
+                    <div key={vendor.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+                        <div className="text-sm font-semibold text-gray-900">{vendor.name}</div>
+                        <div className="text-xs text-gray-500 break-all">{vendor.email}</div>
+                        <div className="text-xs text-gray-600">Company: {vendor.vendorProfile?.companyName || "-"}</div>
+                        <div className="text-xs text-gray-600">Assignments: {vendor.vendorAssignments.length}</div>
+                        <span className={`inline-flex text-[10px] px-2 py-1 rounded-full ${vendor.vendorProfile?.isActive !== false ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>
+                            {vendor.vendorProfile?.isActive !== false ? "ACTIVE" : "INACTIVE"}
+                        </span>
+                    </div>
+                ))}
+                {initialVendors.length === 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+                        No vendors yet.
+                    </div>
+                )}
+            </div>
+
+            <div className="hidden md:block bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -139,6 +159,7 @@ export default function VendorsAdminClient({ initialVendors }: { initialVendors:
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     )

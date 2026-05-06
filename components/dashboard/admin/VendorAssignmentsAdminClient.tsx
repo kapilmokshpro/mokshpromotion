@@ -110,7 +110,7 @@ export default function VendorAssignmentsAdminClient(props: {
             </div>
 
             <form onSubmit={assignSites} className="bg-white border border-gray-200 rounded-xl p-4 space-y-4">
-                <div className="grid md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <select
                         value={vendorId}
                         onChange={(e) => setVendorId(e.target.value)}
@@ -178,7 +178,7 @@ export default function VendorAssignmentsAdminClient(props: {
                     ))}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     <button
                         type="submit"
                         disabled={loading}
@@ -190,7 +190,24 @@ export default function VendorAssignmentsAdminClient(props: {
                 </div>
             </form>
 
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="md:hidden space-y-3">
+                {props.assignments.map((item) => (
+                    <div key={item.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-1">
+                        <div className="text-sm font-semibold text-gray-900">{item.inventoryHoarding.outletName}</div>
+                        <div className="text-xs text-gray-600">Vendor: {item.vendor.name}</div>
+                        <div className="text-xs text-gray-600">Lead: {item.lead?.customerName || "-"}</div>
+                        <div className="text-xs text-gray-600">Status: {item.status}</div>
+                    </div>
+                ))}
+                {props.assignments.length === 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+                        No assignments found.
+                    </div>
+                )}
+            </div>
+
+            <div className="hidden md:block bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -221,8 +238,8 @@ export default function VendorAssignmentsAdminClient(props: {
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     )
 }
-

@@ -68,11 +68,11 @@ export default function UsersPage({
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900">User Management</h1>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                    className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
                 >
                     + Add User
                 </button>
@@ -84,7 +84,46 @@ export default function UsersPage({
                 </div>
             )}
 
-            <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
+            <div className="md:hidden space-y-3">
+                {users.map((user) => (
+                    <div key={user.id} className="bg-white shadow rounded-lg border border-gray-200 p-4 space-y-2">
+                        <div className="text-sm font-semibold text-gray-900">{user.name}</div>
+                        <div className="text-xs text-gray-500 break-all">{user.email}</div>
+                        <div className="flex items-center justify-between">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
+                                    user.role === 'SALES' ? 'bg-blue-100 text-blue-800' :
+                                    user.role === 'VENDOR' ? 'bg-amber-100 text-amber-800' :
+                                    'bg-gray-100 text-gray-800'}`}>
+                                {user.role}
+                            </span>
+                            <span className="text-xs text-gray-500">{formatDateInIndia(user.createdAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-3 pt-1">
+                            <button
+                                onClick={() => {
+                                    setActionError("")
+                                    setEditingUser(user)
+                                }}
+                                disabled={user.role === "SUPER_ADMIN" && !canManageSuperAdmin}
+                                className="font-medium text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed text-sm"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={() => handleDelete(user)}
+                                disabled={deletingId === user.id || user.id === currentUserId || (user.role === "SUPER_ADMIN" && !canManageSuperAdmin)}
+                                className="font-medium text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed text-sm"
+                            >
+                                {deletingId === user.id ? "Deleting..." : "Delete"}
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="hidden md:block bg-white shadow rounded-lg overflow-hidden border border-gray-200">
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -141,6 +180,7 @@ export default function UsersPage({
                         ))}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {isModalOpen && <AddUserModal onClose={() => setIsModalOpen(false)} />}

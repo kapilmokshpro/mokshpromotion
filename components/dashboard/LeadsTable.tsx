@@ -169,8 +169,8 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
     return (
         <div className="space-y-4">
             {/* Table Actions */}
-            <div className="flex justify-between items-center">
-                <div className="relative w-64">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                     <input
                         type="text"
@@ -251,7 +251,7 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => router.push(`/dashboard/sales/leads/${lead.id}`)}
                                                     className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-md flex items-center gap-1 text-xs transition-colors"

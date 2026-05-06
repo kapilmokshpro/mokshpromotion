@@ -69,7 +69,43 @@ export default function VendorSitesClient({ assignments }: { assignments: Assign
                 />
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="md:hidden space-y-3">
+                {filtered.map((item) => {
+                    const site = item.inventoryHoarding
+                    const location = [site.locationName, site.city || site.district, site.state].filter(Boolean).join(", ")
+                    const statusClass = statusClasses[item.status] || "bg-gray-100 text-gray-700"
+
+                    return (
+                        <div key={item.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                                <div>
+                                    <div className="text-sm font-semibold text-gray-900">{site.outletName}</div>
+                                    <div className="text-xs text-gray-500">ID: {site.inventoryCode || "-"}</div>
+                                </div>
+                                <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${statusClass}`}>
+                                    {item.status}
+                                </span>
+                            </div>
+                            <div className="text-xs text-gray-600">{location || "-"}</div>
+                            <div className="text-xs text-gray-600">Campaign: {item.lead?.customerName || "-"}</div>
+                            <Link
+                                href={`/dashboard/vendor/sites/${item.id}`}
+                                className="inline-block text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                                Open
+                            </Link>
+                        </div>
+                    )
+                })}
+                {filtered.length === 0 && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-sm text-gray-500">
+                        No assignments found.
+                    </div>
+                )}
+            </div>
+
+            <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -119,8 +155,8 @@ export default function VendorSitesClient({ assignments }: { assignments: Assign
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     )
 }
-

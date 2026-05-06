@@ -119,7 +119,7 @@ export default function VendorProofsAdminClient({ proofs }: { proofs: ProofRow[]
                                     <p className="text-sm text-gray-600">Campaign/Client: {proof.assignment.lead?.customerName || "-"}</p>
                                     <p className="text-sm text-gray-600">Location: {location || "-"}</p>
                                 </div>
-                                <div className="text-right">
+                                <div className="text-left sm:text-right">
                                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                         proof.status === "APPROVED" ? "bg-green-100 text-green-800" :
                                         proof.status === "REJECTED" ? "bg-red-100 text-red-800" :
@@ -166,18 +166,18 @@ export default function VendorProofsAdminClient({ proofs }: { proofs: ProofRow[]
                             </div>
 
                             {isPending && (
-                                <div className="mt-4 flex items-center gap-3">
+                                <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
                                     <button
                                         onClick={() => approveProof(proof.id)}
                                         disabled={loadingId === proof.id}
-                                        className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-md disabled:opacity-50"
+                                        className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded-md disabled:opacity-50"
                                     >
                                         {loadingId === proof.id ? "Processing..." : "Approve"}
                                     </button>
                                     <button
                                         onClick={() => rejectProof(proof.id)}
                                         disabled={loadingId === proof.id}
-                                        className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md disabled:opacity-50"
+                                        className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-md disabled:opacity-50"
                                     >
                                         Reject / Re-upload
                                     </button>
@@ -196,4 +196,3 @@ export default function VendorProofsAdminClient({ proofs }: { proofs: ProofRow[]
         </div>
     )
 }
-
