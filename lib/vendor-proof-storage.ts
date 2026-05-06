@@ -30,7 +30,7 @@ const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".webm"])
 const PUBLIC_UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads", "vendor-proofs")
 const VENDOR_MEDIA_STORAGE = (process.env.VENDOR_MEDIA_STORAGE || "local").trim().toLowerCase()
 
-type S3StorageConfig = {
+export type S3StorageConfig = {
     bucket: string
     region: string
     endpoint?: string
@@ -43,6 +43,12 @@ type S3StorageConfig = {
 type ParsedProofFile = {
     file: File
     mediaType: VendorProofMediaType
+}
+
+export type VendorProofUploadCandidate = {
+    fileName: string
+    mimeType: string
+    size: number
 }
 
 export type StoredVendorProofMedia = {
@@ -70,7 +76,9 @@ const parseBooleanEnv = (value: string | undefined, fallback = false) => {
 
 const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, "")
 
-const resolveS3StorageConfig = (): S3StorageConfig | null => {
+export const getVendorMediaStorageMode = () => VENDOR_MEDIA_STORAGE
+
+export const resolveS3StorageConfig = (): S3StorageConfig | null => {
     if (s3StorageConfigLoaded) return s3StorageConfigCache
     s3StorageConfigLoaded = true
 
@@ -113,7 +121,7 @@ const resolveS3StorageConfig = (): S3StorageConfig | null => {
     return s3StorageConfigCache
 }
 
-const getS3Client = (config: S3StorageConfig) => {
+export const getVendorProofS3Client = (config: S3StorageConfig) => {
     if (s3ClientCache) return s3ClientCache
 
     s3ClientCache = new S3Client({
@@ -129,7 +137,7 @@ const getS3Client = (config: S3StorageConfig) => {
     return s3ClientCache
 }
 
-const buildStoredFileName = (sourceName: string) => {
+export const buildVendorProofStoredFileName = (sourceName: string) => {
     const extension = path.extname(sourceName) || ""
     const baseName = path.basename(sourceName, extension)
     const safeBase = sanitizeFileName(baseName).slice(0, 60) || "proof"
@@ -138,7 +146,20 @@ const buildStoredFileName = (sourceName: string) => {
     return `${Date.now()}-${uniquePart}-${safeBase}${extension}`
 }
 
-const buildCloudPublicUrl = (config: S3StorageConfig, key: string) => {
+export const buildVendorProofObjectKey = (params: {
+    vendorId: number
+    assignmentId: string
+    finalName: string
+}) => {
+    return path.posix.join(
+        "vendor-proofs",
+        String(params.vendorId),
+        params.assignmentId,
+        params.finalName
+    )
+}
+
+export const buildVendorProofCloudPublicUrl = (config: S3StorageConfig, key: string) => {
     if (config.publicBaseUrl) {
         return `${config.publicBaseUrl}/${key}`
     }
@@ -148,6 +169,75 @@ const buildCloudPublicUrl = (config: S3StorageConfig, key: string) => {
     }
 
     return `https://s3.${config.region}.amazonaws.com/${config.bucket}/${key}`
+}
+
+const resolveMediaType = (fileName: string, mimeType: string) => {
+    const normalizedMimeType = (mimeType || "").toLowerCase()
+    const extension = path.extname(fileName || "").toLowerCase()
+
+    const isImage = IMAGE_MIME_TYPES.has(normalizedMimeType) || (!normalizedMimeType && IMAGE_EXTENSIONS.has(extension))
+    const isVideo = VIDEO_MIME_TYPES.has(normalizedMimeType) || (!normalizedMimeType && VIDEO_EXTENSIONS.has(extension))
+
+    if (isImage) return VendorProofMediaType.PHOTO
+    if (isVideo) return VendorProofMediaType.VIDEO
+    return null
+}
+
+export function parseAndValidateProofUploadCandidates(candidates: VendorProofUploadCandidate[]) {
+    if (!candidates?.length) {
+        throw new Error("At least one media file is required")
+    }
+
+    const parsed: Array<{ mediaType: VendorProofMediaType } & VendorProofUploadCandidate> = []
+    let photoCount = 0
+    let videoCount = 0
+    let totalBytes = 0
+
+    for (const candidate of candidates) {
+        const fileName = (candidate.fileName || "").trim()
+        const mimeType = (candidate.mimeType || "").trim()
+        const size = Number(candidate.size)
+
+        if (!fileName) throw new Error("Invalid file name")
+        if (!Number.isFinite(size) || size <= 0) throw new Error(`Invalid file size for ${fileName}`)
+
+        totalBytes += size
+
+        const mediaType = resolveMediaType(fileName, mimeType)
+        if (!mediaType) {
+            throw new Error(`Unsupported file type: ${fileName}`)
+        }
+
+        if (mediaType === VendorProofMediaType.PHOTO) {
+            photoCount += 1
+        } else {
+            if (size > MAX_VENDOR_PROOF_VIDEO_BYTES) {
+                throw new Error(`Video "${fileName}" exceeds allowed size limit`)
+            }
+            videoCount += 1
+        }
+
+        parsed.push({
+            mediaType,
+            fileName,
+            mimeType,
+            size,
+        })
+    }
+
+    if (photoCount > MAX_VENDOR_PROOF_PHOTOS) {
+        throw new Error(`You can upload up to ${MAX_VENDOR_PROOF_PHOTOS} photos`)
+    }
+
+    if (videoCount > MAX_VENDOR_PROOF_VIDEOS) {
+        throw new Error(`You can upload up to ${MAX_VENDOR_PROOF_VIDEOS} videos`)
+    }
+
+    if (totalBytes > MAX_VENDOR_PROOF_TOTAL_BYTES) {
+        throw new Error("Combined file size exceeds allowed limit")
+    }
+
+    return parsed
 }
 
 export function parseAndValidateProofFiles(files: File[]) {
@@ -161,20 +251,15 @@ export function parseAndValidateProofFiles(files: File[]) {
     let totalBytes = 0
 
     for (const file of files) {
-        const mimeType = (file.type || "").toLowerCase()
-        const extension = path.extname(file.name || "").toLowerCase()
         totalBytes += file.size
+        const mediaType = resolveMediaType(file.name || "", file.type || "")
 
-        const isImage = IMAGE_MIME_TYPES.has(mimeType) || (!mimeType && IMAGE_EXTENSIONS.has(extension))
-        const isVideo = VIDEO_MIME_TYPES.has(mimeType) || (!mimeType && VIDEO_EXTENSIONS.has(extension))
-
-        if (isImage) {
+        if (mediaType === VendorProofMediaType.PHOTO) {
             photoCount += 1
             parsed.push({ file, mediaType: VendorProofMediaType.PHOTO })
             continue
         }
-
-        if (isVideo) {
+        if (mediaType === VendorProofMediaType.VIDEO) {
             if (file.size > MAX_VENDOR_PROOF_VIDEO_BYTES) {
                 throw new Error(`Video "${file.name}" exceeds allowed size limit`)
             }
@@ -208,18 +293,17 @@ export async function storeVendorProofFiles(params: {
 }) {
     const s3Config = resolveS3StorageConfig()
     if (s3Config) {
-        const s3Client = getS3Client(s3Config)
+        const s3Client = getVendorProofS3Client(s3Config)
         const storedCloud: StoredVendorProofMedia[] = []
 
         for (const item of params.files) {
             const sourceName = item.file.name || "file"
-            const finalName = buildStoredFileName(sourceName)
-            const key = path.posix.join(
-                "vendor-proofs",
-                String(params.vendorId),
-                params.assignmentId,
-                finalName
-            )
+            const finalName = buildVendorProofStoredFileName(sourceName)
+            const key = buildVendorProofObjectKey({
+                vendorId: params.vendorId,
+                assignmentId: params.assignmentId,
+                finalName,
+            })
             const buffer = Buffer.from(await item.file.arrayBuffer())
 
             await s3Client.send(
@@ -233,7 +317,7 @@ export async function storeVendorProofFiles(params: {
 
             storedCloud.push({
                 type: item.mediaType,
-                url: buildCloudPublicUrl(s3Config, key),
+                url: buildVendorProofCloudPublicUrl(s3Config, key),
                 fileName: finalName,
                 mimeType: item.file.type,
                 size: item.file.size,
@@ -254,7 +338,7 @@ export async function storeVendorProofFiles(params: {
 
     for (const item of params.files) {
         const sourceName = item.file.name || "file"
-        const finalName = buildStoredFileName(sourceName)
+        const finalName = buildVendorProofStoredFileName(sourceName)
         const diskPath = path.join(folderPath, finalName)
         const buffer = Buffer.from(await item.file.arrayBuffer())
 

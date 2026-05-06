@@ -39,12 +39,24 @@ type AssignmentDetail = {
     proofs: ProofRow[]
 }
 
+type PresignedUploadItem = {
+    mediaType: "PHOTO" | "VIDEO"
+    fileName: string
+    mimeType: string
+    size: number
+    key: string
+    uploadUrl: string
+    publicUrl: string
+}
+
 const MAX_PHOTOS = 5
 const MAX_VIDEOS = 2
 const MAX_VIDEO_DURATION_SECONDS = 10
 const MAX_TOTAL_UPLOAD_BYTES = 4 * 1024 * 1024 // ~4 MB safe payload for serverless
 const MAX_VIDEO_FILE_BYTES = 3 * 1024 * 1024 // ~3 MB per video
 const IMAGE_COMPRESS_THRESHOLD_BYTES = 1200 * 1024 // compress images above ~1.2 MB
+const RECORDER_VIDEO_BITS_PER_SECOND = 1_500_000
+const RECORDER_AUDIO_BITS_PER_SECOND = 96_000
 
 const statusClass: Record<string, string> = {
     ASSIGNED_TO_VENDOR: "bg-blue-100 text-blue-800",
@@ -156,12 +168,36 @@ const getVideoDurationSeconds = async (file: File): Promise<number | null> => {
     }
 }
 
+const selectRecorderMimeType = () => {
+    if (typeof MediaRecorder === "undefined" || typeof MediaRecorder.isTypeSupported !== "function") return ""
+
+    const candidates = [
+        "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+        "video/mp4",
+        "video/webm;codecs=vp8,opus",
+        "video/webm"
+    ]
+
+    for (const candidate of candidates) {
+        if (MediaRecorder.isTypeSupported(candidate)) return candidate
+    }
+
+    return ""
+}
+
 export default function VendorSiteDetailClient({ assignment }: { assignment: AssignmentDetail }) {
     const router = useRouter()
     const photoInputRef = useRef<HTMLInputElement | null>(null)
     const videoInputRef = useRef<HTMLInputElement | null>(null)
     const fileInputRef = useRef<HTMLInputElement | null>(null)
+    const liveRecorderPreviewRef = useRef<HTMLVideoElement | null>(null)
     const autoLocationRequested = useRef(false)
+    const recorderRef = useRef<MediaRecorder | null>(null)
+    const recorderStreamRef = useRef<MediaStream | null>(null)
+    const recorderChunksRef = useRef<Blob[]>([])
+    const recorderShouldSaveRef = useRef(true)
+    const recorderStopTimeoutRef = useRef<number | null>(null)
+    const recorderCountdownIntervalRef = useRef<number | null>(null)
 
     const [files, setFiles] = useState<File[]>([])
     const [latitude, setLatitude] = useState<number | null>(null)
@@ -174,6 +210,10 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
     const [uploading, setUploading] = useState(false)
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
+    const [recordingSupported, setRecordingSupported] = useState(false)
+    const [recordingStarting, setRecordingStarting] = useState(false)
+    const [recordingInProgress, setRecordingInProgress] = useState(false)
+    const [recordingSecondsLeft, setRecordingSecondsLeft] = useState(MAX_VIDEO_DURATION_SECONDS)
 
     const fileStats = useMemo(() => {
         let photos = 0
@@ -287,6 +327,224 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
         void captureLocation(true)
     }, [assignment.status])
 
+    useEffect(() => {
+        const canUse =
+            typeof window !== "undefined" &&
+            typeof navigator !== "undefined" &&
+            !!navigator.mediaDevices?.getUserMedia &&
+            typeof MediaRecorder !== "undefined"
+
+        setRecordingSupported(canUse)
+    }, [])
+
+    const clearRecorderTimers = () => {
+        if (recorderStopTimeoutRef.current !== null) {
+            window.clearTimeout(recorderStopTimeoutRef.current)
+            recorderStopTimeoutRef.current = null
+        }
+        if (recorderCountdownIntervalRef.current !== null) {
+            window.clearInterval(recorderCountdownIntervalRef.current)
+            recorderCountdownIntervalRef.current = null
+        }
+    }
+
+    const stopRecorderStream = () => {
+        const stream = recorderStreamRef.current
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop())
+            recorderStreamRef.current = null
+        }
+
+        const preview = liveRecorderPreviewRef.current
+        if (preview) {
+            preview.pause()
+            preview.srcObject = null
+        }
+    }
+
+    const stopRecording = (saveCapture: boolean) => {
+        recorderShouldSaveRef.current = saveCapture
+        const recorder = recorderRef.current
+        if (!recorder) {
+            clearRecorderTimers()
+            stopRecorderStream()
+            setRecordingInProgress(false)
+            setRecordingStarting(false)
+            return
+        }
+
+        if (recorder.state !== "inactive") {
+            recorder.stop()
+        } else {
+            clearRecorderTimers()
+            stopRecorderStream()
+            recorderRef.current = null
+            setRecordingInProgress(false)
+            setRecordingStarting(false)
+        }
+    }
+
+    const startInlineVideoCapture = async () => {
+        setError("")
+        setSuccess("")
+
+        if (recordingStarting || recordingInProgress) return
+
+        const canUseInlineRecorder =
+            typeof navigator !== "undefined" &&
+            !!navigator.mediaDevices?.getUserMedia &&
+            typeof MediaRecorder !== "undefined"
+
+        if (!canUseInlineRecorder) {
+            // Fallback for older iPhone/Safari devices
+            videoInputRef.current?.click()
+            return
+        }
+
+        setRecordingStarting(true)
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: true
+            })
+
+            recorderStreamRef.current = stream
+
+            const preview = liveRecorderPreviewRef.current
+            if (preview) {
+                preview.muted = true
+                preview.playsInline = true
+                preview.autoplay = true
+                preview.srcObject = stream
+                await preview.play().catch(() => null)
+            }
+
+            const mimeType = selectRecorderMimeType()
+            const recorderOptions: MediaRecorderOptions = {
+                videoBitsPerSecond: RECORDER_VIDEO_BITS_PER_SECOND,
+                audioBitsPerSecond: RECORDER_AUDIO_BITS_PER_SECOND,
+            }
+            if (mimeType) recorderOptions.mimeType = mimeType
+
+            let recorder: MediaRecorder
+            try {
+                recorder = new MediaRecorder(stream, recorderOptions)
+            } catch {
+                recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+            }
+
+            recorderChunksRef.current = []
+            recorderShouldSaveRef.current = true
+            recorderRef.current = recorder
+
+            recorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recorderChunksRef.current.push(event.data)
+                }
+            }
+
+            recorder.onstop = async () => {
+                clearRecorderTimers()
+                stopRecorderStream()
+                setRecordingInProgress(false)
+                setRecordingStarting(false)
+                setRecordingSecondsLeft(MAX_VIDEO_DURATION_SECONDS)
+                recorderRef.current = null
+
+                if (!recorderShouldSaveRef.current) return
+
+                const outputMimeType = recorder.mimeType || mimeType || "video/mp4"
+                const blob = new Blob(recorderChunksRef.current, { type: outputMimeType })
+                recorderChunksRef.current = []
+
+                if (blob.size === 0) {
+                    setError("Video capture failed. Please retry.")
+                    return
+                }
+
+                const extension = outputMimeType.includes("webm")
+                    ? "webm"
+                    : outputMimeType.includes("quicktime")
+                        ? "mov"
+                        : "mp4"
+
+                const capturedFile = new File([blob], `capture-${Date.now()}.${extension}`, {
+                    type: outputMimeType
+                })
+
+                await appendFiles([capturedFile])
+            }
+
+            recorder.onerror = () => {
+                setError("Video recorder error. Please try again.")
+                stopRecording(false)
+            }
+
+            setRecordingSecondsLeft(MAX_VIDEO_DURATION_SECONDS)
+            setRecordingInProgress(true)
+            setRecordingStarting(false)
+
+            recorder.start(400)
+
+            recorderStopTimeoutRef.current = window.setTimeout(() => {
+                stopRecording(true)
+            }, MAX_VIDEO_DURATION_SECONDS * 1000)
+
+            recorderCountdownIntervalRef.current = window.setInterval(() => {
+                setRecordingSecondsLeft((current) => {
+                    if (current <= 1) return 0
+                    return current - 1
+                })
+            }, 1000)
+        } catch (err: any) {
+            stopRecorderStream()
+            clearRecorderTimers()
+            setRecordingStarting(false)
+            setRecordingInProgress(false)
+            recorderRef.current = null
+
+            const message = typeof err?.message === "string" ? err.message : ""
+            if (message.toLowerCase().includes("permission")) {
+                setError("Camera permission denied. Please allow camera access and retry.")
+                return
+            }
+
+            setError("Unable to start camera recording on this device/browser.")
+        }
+    }
+
+    useEffect(() => {
+        return () => {
+            recorderShouldSaveRef.current = false
+
+            if (recorderStopTimeoutRef.current !== null) {
+                window.clearTimeout(recorderStopTimeoutRef.current)
+            }
+            if (recorderCountdownIntervalRef.current !== null) {
+                window.clearInterval(recorderCountdownIntervalRef.current)
+            }
+
+            const recorder = recorderRef.current
+            if (recorder && recorder.state !== "inactive") {
+                try {
+                    recorder.stop()
+                } catch {
+                    // no-op cleanup
+                }
+            }
+
+            const stream = recorderStreamRef.current
+            if (stream) {
+                stream.getTracks().forEach((track) => track.stop())
+            }
+        }
+    }, [])
+
     const appendFiles = async (incomingFiles: File[]) => {
         setError("")
         setSuccess("")
@@ -338,6 +596,74 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
         setFiles(merged)
     }
 
+    const uploadFilesViaPresignedUrls = async () => {
+        const presignRes = await fetch("/api/vendor/uploads/presign", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                assignmentId: assignment.id,
+                files: files.map((file) => ({
+                    fileName: file.name,
+                    mimeType: file.type || "",
+                    size: file.size,
+                })),
+            }),
+        })
+
+        if (!presignRes.ok) {
+            const text = await presignRes.text()
+            throw new Error(text || "Unable to prepare direct upload")
+        }
+
+        const presignData = await presignRes.json() as { uploads?: PresignedUploadItem[] }
+        const uploads = Array.isArray(presignData.uploads) ? presignData.uploads : []
+        if (!uploads.length || uploads.length !== files.length) {
+            throw new Error("Invalid upload session. Please retry.")
+        }
+
+        for (let i = 0; i < files.length; i += 1) {
+            const file = files[i]
+            const target = uploads[i]
+
+            const uploadRes = await fetch(target.uploadUrl, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": file.type || target.mimeType || "application/octet-stream",
+                },
+                body: file,
+            })
+
+            if (!uploadRes.ok) {
+                throw new Error(`Failed to upload "${file.name}" to storage`)
+            }
+        }
+
+        const submitRes = await fetch(`/api/vendor/assignments/${assignment.id}/upload-proof`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                latitude,
+                longitude,
+                accuracy,
+                uploadedMedia: uploads.map((entry) => ({
+                    key: entry.key,
+                    fileName: entry.fileName,
+                    mimeType: entry.mimeType,
+                    size: entry.size,
+                })),
+            }),
+        })
+
+        if (!submitRes.ok) {
+            const text = await submitRes.text()
+            throw new Error(text || "Failed to submit uploaded proof")
+        }
+    }
+
     const submitProof = async (e: React.FormEvent) => {
         e.preventDefault()
         setError("")
@@ -356,22 +682,36 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
 
         setUploading(true)
         try {
-            const formData = new FormData()
-            for (const file of files) formData.append("files", file)
-            formData.append("latitude", String(latitude))
-            formData.append("longitude", String(longitude))
-            if (accuracy !== null) formData.append("accuracy", String(accuracy))
+            try {
+                await uploadFilesViaPresignedUrls()
+            } catch (directUploadErr: any) {
+                const message = String(directUploadErr?.message || "")
 
-            const res = await fetch(`/api/vendor/assignments/${assignment.id}/upload-proof`, {
-                method: "POST",
-                body: formData
-            })
-            if (!res.ok) {
-                const text = await res.text()
-                if (res.status === 413 || text.includes("FUNCTION_PAYLOAD_TOO_LARGE")) {
-                    throw new Error(`Upload too large for server. Keep total file size under ${formatBytes(MAX_TOTAL_UPLOAD_BYTES)} and each video under ${formatBytes(MAX_VIDEO_FILE_BYTES)}.`)
+                // Fallback: local/dev or when direct S3 mode is unavailable
+                if (
+                    message.includes("Direct upload is unavailable in local storage mode") ||
+                    message.includes("Unable to prepare direct upload")
+                ) {
+                    const formData = new FormData()
+                    for (const file of files) formData.append("files", file)
+                    formData.append("latitude", String(latitude))
+                    formData.append("longitude", String(longitude))
+                    if (accuracy !== null) formData.append("accuracy", String(accuracy))
+
+                    const res = await fetch(`/api/vendor/assignments/${assignment.id}/upload-proof`, {
+                        method: "POST",
+                        body: formData
+                    })
+                    if (!res.ok) {
+                        const text = await res.text()
+                        if (res.status === 413 || text.includes("FUNCTION_PAYLOAD_TOO_LARGE")) {
+                            throw new Error(`Upload too large for server. Keep total file size under ${formatBytes(MAX_TOTAL_UPLOAD_BYTES)} and each video under ${formatBytes(MAX_VIDEO_FILE_BYTES)}.`)
+                        }
+                        throw new Error(text || "Upload failed")
+                    }
+                } else {
+                    throw directUploadErr
                 }
-                throw new Error(text || "Upload failed")
             }
 
             setSuccess("Proof submitted for admin approval.")
@@ -425,7 +765,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                                 type="file"
                                 multiple
                                 ref={fileInputRef}
-                                accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
+                                accept="image/*,video/*"
                                 onChange={(e) => void appendFiles(Array.from(e.target.files || []))}
                                 className="block w-full text-sm text-gray-700"
                             />
@@ -447,14 +787,19 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                         </button>
                         <button
                             type="button"
-                            onClick={() => videoInputRef.current?.click()}
-                            className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50"
+                            onClick={() => void startInlineVideoCapture()}
+                            disabled={recordingStarting || recordingInProgress}
+                            className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
                         >
-                            Capture Video
+                            {recordingStarting ? "Opening Camera..." : recordingInProgress ? `Recording... ${recordingSecondsLeft}s` : "Capture Video (10s Auto Stop)"}
                         </button>
                         <button
                             type="button"
-                            onClick={() => setFiles([])}
+                            onClick={() => {
+                                setFiles([])
+                                setError("")
+                                setSuccess("")
+                            }}
                             className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50"
                         >
                             Clear Selected
@@ -464,21 +809,52 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                     <input
                         ref={photoInputRef}
                         type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif"
+                        accept="image/*"
                         capture="environment"
-                        multiple
                         className="hidden"
                         onChange={(e) => void appendFiles(Array.from(e.target.files || []))}
                     />
                     <input
                         ref={videoInputRef}
                         type="file"
-                        accept="video/mp4,video/quicktime,video/webm"
+                        accept="video/*"
                         capture="environment"
-                        multiple
                         className="hidden"
                         onChange={(e) => void appendFiles(Array.from(e.target.files || []))}
                     />
+
+                    {(recordingInProgress || recordingStarting) && (
+                        <div className="border border-blue-200 rounded-md p-3 bg-blue-50">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                                <p className="text-sm font-medium text-blue-800">
+                                    {recordingStarting ? "Preparing camera..." : "Recording in progress"}
+                                </p>
+                                <p className="text-sm font-semibold text-blue-900">{recordingSecondsLeft}s</p>
+                            </div>
+                            <video
+                                ref={liveRecorderPreviewRef}
+                                muted
+                                playsInline
+                                autoPlay
+                                className="w-full h-48 rounded-md bg-black object-cover"
+                            />
+                            <div className="mt-2 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => stopRecording(true)}
+                                    className="px-3 py-2 rounded-md border border-blue-300 bg-white text-sm font-medium text-blue-800 hover:bg-blue-100"
+                                >
+                                    Stop Now
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {!recordingSupported && (
+                        <p className="text-xs text-amber-700">
+                            Inline recorder is not supported on this device/browser. Using native camera picker fallback.
+                        </p>
+                    )}
 
                     {previewUrls.length > 0 && (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

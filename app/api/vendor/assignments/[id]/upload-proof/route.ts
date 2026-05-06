@@ -4,7 +4,11 @@ import { requireVendorSession } from "@/lib/vendor-auth"
 import {
     MAX_VENDOR_PROOF_PHOTOS,
     MAX_VENDOR_PROOF_VIDEOS,
+    buildVendorProofCloudPublicUrl,
+    getVendorMediaStorageMode,
     parseAndValidateProofFiles,
+    parseAndValidateProofUploadCandidates,
+    resolveS3StorageConfig,
     storeVendorProofFiles,
 } from "@/lib/vendor-proof-storage"
 import { createAuditLog } from "@/lib/audit"
@@ -19,7 +23,10 @@ const canUploadForStatus = (status: string) =>
         "REJECTED",
     ].includes(status)
 
-const parseCoordinate = (value: FormDataEntryValue | null) => {
+const parseCoordinate = (value: unknown) => {
+    if (typeof value === "number") {
+        return Number.isFinite(value) ? value : null
+    }
     if (typeof value !== "string") return null
     const num = Number(value)
     return Number.isFinite(num) ? num : null
@@ -52,22 +59,81 @@ export async function POST(
             return new NextResponse("Upload is not allowed for this assignment status", { status: 400 })
         }
 
-        const formData = await req.formData()
-        const rawFiles = formData.getAll("files").filter((entry) => entry instanceof File) as File[]
-        const latitude = parseCoordinate(formData.get("latitude"))
-        const longitude = parseCoordinate(formData.get("longitude"))
-        const accuracy = parseCoordinate(formData.get("accuracy"))
+        const contentType = req.headers.get("content-type") || ""
+
+        let latitude: number | null = null
+        let longitude: number | null = null
+        let accuracy: number | null = null
+        let storedFiles: Array<{
+            type: "PHOTO" | "VIDEO"
+            url: string
+            fileName: string
+            mimeType: string
+            size: number
+        }> = []
+
+        if (contentType.includes("application/json")) {
+            const body = await req.json()
+            latitude = parseCoordinate(body?.latitude)
+            longitude = parseCoordinate(body?.longitude)
+            accuracy = parseCoordinate(body?.accuracy)
+
+            const uploadedMedia = Array.isArray(body?.uploadedMedia) ? body.uploadedMedia : []
+            const parsedUploaded = parseAndValidateProofUploadCandidates(
+                uploadedMedia.map((media: any) => ({
+                    fileName: typeof media?.fileName === "string" ? media.fileName : "",
+                    mimeType: typeof media?.mimeType === "string" ? media.mimeType : "",
+                    size: Number(media?.size),
+                }))
+            )
+
+            if (!parsedUploaded.length) {
+                return new NextResponse("No uploaded media found", { status: 400 })
+            }
+
+            if (getVendorMediaStorageMode() !== "s3") {
+                return new NextResponse("Direct upload proof submission is only available for S3 storage mode", { status: 400 })
+            }
+
+            const s3Config = resolveS3StorageConfig()
+            if (!s3Config) {
+                return new NextResponse("S3 configuration missing", { status: 500 })
+            }
+
+            storedFiles = parsedUploaded.map((media, index) => {
+                const item = uploadedMedia[index]
+                const key = typeof item?.key === "string" ? item.key.trim() : ""
+                const expectedPrefix = `vendor-proofs/${vendorId}/${assignment.id}/`
+                if (!key || !key.startsWith(expectedPrefix)) {
+                    throw new Error(`Invalid uploaded object key for ${media.fileName}`)
+                }
+
+                return {
+                    type: media.mediaType,
+                    url: buildVendorProofCloudPublicUrl(s3Config, key),
+                    fileName: media.fileName,
+                    mimeType: media.mimeType,
+                    size: media.size,
+                }
+            })
+        } else {
+            const formData = await req.formData()
+            const rawFiles = formData.getAll("files").filter((entry) => entry instanceof File) as File[]
+            latitude = parseCoordinate(formData.get("latitude"))
+            longitude = parseCoordinate(formData.get("longitude"))
+            accuracy = parseCoordinate(formData.get("accuracy"))
+
+            const parsedFiles = parseAndValidateProofFiles(rawFiles)
+            storedFiles = await storeVendorProofFiles({
+                vendorId,
+                assignmentId: assignment.id,
+                files: parsedFiles,
+            })
+        }
 
         if (latitude === null || longitude === null) {
             return new NextResponse("Latitude and longitude are required", { status: 400 })
         }
-
-        const parsedFiles = parseAndValidateProofFiles(rawFiles)
-        const storedFiles = await storeVendorProofFiles({
-            vendorId,
-            assignmentId: assignment.id,
-            files: parsedFiles,
-        })
 
         const now = new Date()
         const created = await db.$transaction(async (tx) => {
@@ -132,4 +198,3 @@ export async function POST(
         return new NextResponse("Internal Error", { status: 500 })
     }
 }
-
