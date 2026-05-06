@@ -11,6 +11,8 @@ const IMAGE_MIME_TYPES = new Set([
     "image/jpg",
     "image/png",
     "image/webp",
+    "image/heic",
+    "image/heif",
 ])
 
 const VIDEO_MIME_TYPES = new Set([
@@ -18,6 +20,9 @@ const VIDEO_MIME_TYPES = new Set([
     "video/quicktime",
     "video/webm",
 ])
+
+const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"])
+const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".webm"])
 
 const PUBLIC_UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads", "vendor-proofs")
 
@@ -48,14 +53,18 @@ export function parseAndValidateProofFiles(files: File[]) {
 
     for (const file of files) {
         const mimeType = (file.type || "").toLowerCase()
+        const extension = path.extname(file.name || "").toLowerCase()
 
-        if (IMAGE_MIME_TYPES.has(mimeType)) {
+        const isImage = IMAGE_MIME_TYPES.has(mimeType) || (!mimeType && IMAGE_EXTENSIONS.has(extension))
+        const isVideo = VIDEO_MIME_TYPES.has(mimeType) || (!mimeType && VIDEO_EXTENSIONS.has(extension))
+
+        if (isImage) {
             photoCount += 1
             parsed.push({ file, mediaType: VendorProofMediaType.PHOTO })
             continue
         }
 
-        if (VIDEO_MIME_TYPES.has(mimeType)) {
+        if (isVideo) {
             videoCount += 1
             parsed.push({ file, mediaType: VendorProofMediaType.VIDEO })
             continue
@@ -112,4 +121,3 @@ export async function storeVendorProofFiles(params: {
 
     return stored
 }
-
