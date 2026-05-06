@@ -41,6 +41,10 @@ type AssignmentDetail = {
 
 const MAX_PHOTOS = 5
 const MAX_VIDEOS = 2
+const MAX_VIDEO_DURATION_SECONDS = 10
+const MAX_TOTAL_UPLOAD_BYTES = 4 * 1024 * 1024 // ~4 MB safe payload for serverless
+const MAX_VIDEO_FILE_BYTES = 3 * 1024 * 1024 // ~3 MB per video
+const IMAGE_COMPRESS_THRESHOLD_BYTES = 1200 * 1024 // compress images above ~1.2 MB
 
 const statusClass: Record<string, string> = {
     ASSIGNED_TO_VENDOR: "bg-blue-100 text-blue-800",
@@ -74,6 +78,82 @@ const isImageFile = (file: File) => {
         name.endsWith(".heic") ||
         name.endsWith(".heif")
     )
+}
+
+const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
+
+const compressImageFile = async (file: File): Promise<File> => {
+    if (!isImageFile(file) || file.size <= IMAGE_COMPRESS_THRESHOLD_BYTES) return file
+
+    const fileUrl = URL.createObjectURL(file)
+    try {
+        const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image()
+            img.onload = () => resolve(img)
+            img.onerror = reject
+            img.src = fileUrl
+        })
+
+        const maxWidth = 1600
+        const maxHeight = 1600
+        let width = image.width
+        let height = image.height
+
+        if (width > maxWidth || height > maxHeight) {
+            const ratio = Math.min(maxWidth / width, maxHeight / height)
+            width = Math.round(width * ratio)
+            height = Math.round(height * ratio)
+        }
+
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return file
+
+        ctx.drawImage(image, 0, 0, width, height)
+
+        const compressedBlob = await new Promise<Blob | null>((resolve) => {
+            canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.72)
+        })
+        if (!compressedBlob) return file
+
+        const compressedFile = new File(
+            [compressedBlob],
+            file.name.replace(/\.(png|webp|heic|heif)$/i, ".jpg"),
+            { type: "image/jpeg" }
+        )
+
+        // If no gain, keep original
+        if (compressedFile.size >= file.size) return file
+        return compressedFile
+    } catch {
+        return file
+    } finally {
+        URL.revokeObjectURL(fileUrl)
+    }
+}
+
+const getVideoDurationSeconds = async (file: File): Promise<number | null> => {
+    if (!isVideoFile(file)) return null
+
+    const objectUrl = URL.createObjectURL(file)
+    try {
+        const duration = await new Promise<number | null>((resolve) => {
+            const video = document.createElement("video")
+            video.preload = "metadata"
+            video.onloadedmetadata = () => resolve(Number.isFinite(video.duration) ? video.duration : null)
+            video.onerror = () => resolve(null)
+            video.src = objectUrl
+        })
+        return duration
+    } finally {
+        URL.revokeObjectURL(objectUrl)
+    }
 }
 
 export default function VendorSiteDetailClient({ assignment }: { assignment: AssignmentDetail }) {
@@ -207,18 +287,39 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
         void captureLocation(true)
     }, [assignment.status])
 
-    const appendFiles = (incomingFiles: File[]) => {
+    const appendFiles = async (incomingFiles: File[]) => {
         setError("")
         setSuccess("")
         if (!incomingFiles.length) return
 
-        const merged = [...files, ...incomingFiles]
+        const processedFiles: File[] = []
+        for (const file of incomingFiles) {
+            if (isVideoFile(file) && file.size > MAX_VIDEO_FILE_BYTES) {
+                setError(`Video "${file.name}" is too large (${formatBytes(file.size)}). Keep each video under ${formatBytes(MAX_VIDEO_FILE_BYTES)}.`)
+                return
+            }
+
+            if (isVideoFile(file)) {
+                const durationSeconds = await getVideoDurationSeconds(file)
+                if (durationSeconds !== null && durationSeconds > MAX_VIDEO_DURATION_SECONDS) {
+                    setError(`Video "${file.name}" is ${durationSeconds.toFixed(1)}s. Max allowed video duration is ${MAX_VIDEO_DURATION_SECONDS}s.`)
+                    return
+                }
+            }
+
+            const normalizedFile = isImageFile(file) ? await compressImageFile(file) : file
+            processedFiles.push(normalizedFile)
+        }
+
+        const merged = [...files, ...processedFiles]
         let photoCount = 0
         let videoCount = 0
+        let totalBytes = 0
 
         for (const f of merged) {
             if (isImageFile(f)) photoCount += 1
             if (isVideoFile(f)) videoCount += 1
+            totalBytes += f.size
         }
 
         if (photoCount > MAX_PHOTOS) {
@@ -227,6 +328,10 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
         }
         if (videoCount > MAX_VIDEOS) {
             setError(`You can upload up to ${MAX_VIDEOS} videos.`)
+            return
+        }
+        if (totalBytes > MAX_TOTAL_UPLOAD_BYTES) {
+            setError(`Total upload too large (${formatBytes(totalBytes)}). Keep combined files under ${formatBytes(MAX_TOTAL_UPLOAD_BYTES)}.`)
             return
         }
 
@@ -240,6 +345,12 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
 
         if (!isClientValid) {
             setError("Select valid media and capture location before submitting.")
+            return
+        }
+
+        const totalBytes = files.reduce((sum, file) => sum + file.size, 0)
+        if (totalBytes > MAX_TOTAL_UPLOAD_BYTES) {
+            setError(`Upload too large (${formatBytes(totalBytes)}). Keep total under ${formatBytes(MAX_TOTAL_UPLOAD_BYTES)}.`)
             return
         }
 
@@ -257,6 +368,9 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
             })
             if (!res.ok) {
                 const text = await res.text()
+                if (res.status === 413 || text.includes("FUNCTION_PAYLOAD_TOO_LARGE")) {
+                    throw new Error(`Upload too large for server. Keep total file size under ${formatBytes(MAX_TOTAL_UPLOAD_BYTES)} and each video under ${formatBytes(MAX_VIDEO_FILE_BYTES)}.`)
+                }
                 throw new Error(text || "Upload failed")
             }
 
@@ -312,11 +426,14 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                                 multiple
                                 ref={fileInputRef}
                                 accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
-                                onChange={(e) => appendFiles(Array.from(e.target.files || []))}
+                                onChange={(e) => void appendFiles(Array.from(e.target.files || []))}
                                 className="block w-full text-sm text-gray-700"
                             />
                         <p className="text-xs text-gray-500 mt-1">
                             Selected: {fileStats.photos} photo(s), {fileStats.videos} video(s)
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1">
+                            Max total upload: {formatBytes(MAX_TOTAL_UPLOAD_BYTES)}. Videos: max {formatBytes(MAX_VIDEO_FILE_BYTES)} and {MAX_VIDEO_DURATION_SECONDS}s each.
                         </p>
                     </div>
 
@@ -351,7 +468,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                         capture="environment"
                         multiple
                         className="hidden"
-                        onChange={(e) => appendFiles(Array.from(e.target.files || []))}
+                        onChange={(e) => void appendFiles(Array.from(e.target.files || []))}
                     />
                     <input
                         ref={videoInputRef}
@@ -360,7 +477,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                         capture="environment"
                         multiple
                         className="hidden"
-                        onChange={(e) => appendFiles(Array.from(e.target.files || []))}
+                        onChange={(e) => void appendFiles(Array.from(e.target.files || []))}
                     />
 
                     {previewUrls.length > 0 && (
