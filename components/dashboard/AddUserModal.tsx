@@ -111,6 +111,7 @@ export default function AddUserModal({ onClose }: { onClose: () => void }) {
                             <option value="FINANCE">Finance</option>
                             <option value="OPERATIONS">Operations</option>
                             <option value="ADMIN">Admin</option>
+                            <option value="VENDOR">Vendor</option>
                         </select>
                     </div>
 

@@ -40,8 +40,23 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
             active: pathname === "/dashboard" ||
                 pathname === "/dashboard/admin" ||
                 pathname === "/dashboard/finance" ||
-                pathname === "/dashboard/operations",
-            roles: ["ADMIN", "SALES", "FINANCE", "OPERATIONS"]
+                pathname === "/dashboard/operations" ||
+                pathname === "/dashboard/vendor",
+            roles: ["ADMIN", "SALES", "FINANCE", "OPERATIONS", "VENDOR"]
+        },
+        {
+            label: "Vendor Overview",
+            href: "/dashboard/vendor",
+            icon: Truck,
+            active: pathname === "/dashboard/vendor",
+            roles: ["VENDOR"]
+        },
+        {
+            label: "My Sites",
+            href: "/dashboard/vendor/sites",
+            icon: Building2,
+            active: pathname.includes("/dashboard/vendor/sites"),
+            roles: ["VENDOR"]
         },
         {
             label: "Sales Stats",
@@ -104,6 +119,27 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
             href: "/dashboard/admin/users",
             icon: Settings,
             active: pathname.includes("/dashboard/admin/users"),
+            roles: ["ADMIN"]
+        },
+        {
+            label: "Vendors",
+            href: "/dashboard/admin/vendors",
+            icon: Users,
+            active: pathname.includes("/dashboard/admin/vendors"),
+            roles: ["ADMIN"]
+        },
+        {
+            label: "Vendor Assignments",
+            href: "/dashboard/admin/vendor-assignments",
+            icon: Building2,
+            active: pathname.includes("/dashboard/admin/vendor-assignments"),
+            roles: ["ADMIN"]
+        },
+        {
+            label: "Vendor Proofs",
+            href: "/dashboard/admin/vendor-proofs",
+            icon: ClipboardList,
+            active: pathname.includes("/dashboard/admin/vendor-proofs"),
             roles: ["ADMIN"]
         },
         {

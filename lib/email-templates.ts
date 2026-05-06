@@ -629,3 +629,139 @@ export function getPlanEmailTemplate(data: {
 
   return { subject, html };
 }
+
+export function getVendorInviteEmailTemplate(data: {
+  vendorName: string;
+  companyName?: string | null;
+  setupLink: string;
+  expiresAt: Date;
+}) {
+  const subject = "Moksh Promotion Vendor Access Invite";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendor Invite</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 640px; margin: 0 auto; padding: 20px;">
+  <div style="background: #0f172a; color: #ffffff; padding: 24px; border-radius: 10px 10px 0 0;">
+    <h1 style="margin: 0; font-size: 22px;">Vendor Access Invite</h1>
+  </div>
+  <div style="border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px; padding: 24px;">
+    <p>Hello ${data.vendorName},</p>
+    <p>You have been added as a vendor${data.companyName ? ` for <strong>${data.companyName}</strong>` : ""} on Moksh Promotion.</p>
+    <p>Use the secure link below to set your password and access the vendor dashboard.</p>
+    <p style="margin: 24px 0;">
+      <a href="${data.setupLink}" style="background: #1d4ed8; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px; display: inline-block; font-weight: 600;">
+        Set Password & Login
+      </a>
+    </p>
+    <p style="font-size: 13px; color: #6b7280;">This link expires on ${data.expiresAt.toLocaleString("en-IN")}.</p>
+  </div>
+</body>
+</html>
+  `;
+
+  return { subject, html };
+}
+
+export function getVendorAssignmentEmailTemplate(data: {
+  vendorName: string;
+  siteName: string;
+  siteCode?: string | null;
+  locationLabel?: string | null;
+  notes?: string | null;
+  dashboardLink: string;
+}) {
+  const subject = "New Site Assignment for Vendor Upload";
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Site Assignment</title></head>
+<body style="font-family: Arial, sans-serif; color: #111827; max-width: 640px; margin: 0 auto; padding: 20px;">
+  <div style="border:1px solid #e5e7eb; border-radius: 10px; padding: 24px;">
+    <h2 style="margin-top: 0;">New Assignment</h2>
+    <p>Hello ${data.vendorName},</p>
+    <p>A new site has been assigned to you for live proof upload.</p>
+    <ul>
+      <li><strong>Site:</strong> ${data.siteName}</li>
+      <li><strong>Site ID:</strong> ${data.siteCode || "-"}</li>
+      <li><strong>Location:</strong> ${data.locationLabel || "-"}</li>
+      <li><strong>Notes:</strong> ${data.notes || "-"}</li>
+    </ul>
+    <p>
+      <a href="${data.dashboardLink}" style="background:#1d4ed8;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;display:inline-block;">
+        Open Vendor Dashboard
+      </a>
+    </p>
+  </div>
+</body>
+</html>
+  `;
+  return { subject, html };
+}
+
+export function getVendorProofRejectedEmailTemplate(data: {
+  vendorName: string;
+  siteName: string;
+  reason?: string | null;
+  dashboardLink: string;
+}) {
+  const subject = "Proof Re-upload Requested";
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Proof Rejected</title></head>
+<body style="font-family: Arial, sans-serif; color: #111827; max-width: 640px; margin: 0 auto; padding: 20px;">
+  <div style="border:1px solid #e5e7eb; border-radius: 10px; padding: 24px;">
+    <h2 style="margin-top: 0; color: #b45309;">Re-upload Requested</h2>
+    <p>Hello ${data.vendorName},</p>
+    <p>Your submitted proof for <strong>${data.siteName}</strong> was not approved.</p>
+    <p><strong>Reason:</strong> ${data.reason || "Please upload clearer and valid live proof."}</p>
+    <p>
+      <a href="${data.dashboardLink}" style="background:#b45309;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;display:inline-block;">
+        Re-upload Proof
+      </a>
+    </p>
+  </div>
+</body>
+</html>
+  `;
+  return { subject, html };
+}
+
+export function getClientSiteLiveEmailTemplate(data: {
+  clientName?: string | null;
+  siteName: string;
+  siteCode?: string | null;
+  locationLabel?: string | null;
+  campaignName?: string | null;
+  proofLink?: string | null;
+}) {
+  const subject = "Your hoarding/site is now live";
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Site Live</title></head>
+<body style="font-family: Arial, sans-serif; color: #111827; max-width: 640px; margin: 0 auto; padding: 20px;">
+  <div style="border:1px solid #e5e7eb; border-radius: 10px; padding: 24px;">
+    <h2 style="margin-top: 0; color:#047857;">Site is Live</h2>
+    <p>Hello ${data.clientName || "Client"},</p>
+    <p>Your booked site/hoarding is now live.</p>
+    <ul>
+      <li><strong>Site:</strong> ${data.siteName}</li>
+      <li><strong>Site ID:</strong> ${data.siteCode || "-"}</li>
+      <li><strong>Location:</strong> ${data.locationLabel || "-"}</li>
+      <li><strong>Campaign:</strong> ${data.campaignName || "-"}</li>
+    </ul>
+    ${data.proofLink ? `<p><a href="${data.proofLink}" style="color:#1d4ed8;">View approved proof</a></p>` : ""}
+    <p>Thank you for choosing Moksh Promotion.</p>
+  </div>
+</body>
+</html>
+  `;
+  return { subject, html };
+}

@@ -10,6 +10,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum VendorAssignmentStatus {
+  ASSIGNED_TO_VENDOR
+  PENDING_VENDOR_UPLOAD
+  SUBMITTED_FOR_APPROVAL
+  APPROVED
+  REJECTED
+  REUPLOAD_REQUESTED
+  CLIENT_NOTIFIED
+}
+
+enum VendorProofStatus {
+  DRAFT
+  SUBMITTED_FOR_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum VendorProofMediaType {
+  PHOTO
+  VIDEO
+}
+
 
 
 model User {
@@ -36,6 +58,12 @@ model User {
   approvedDiscounts DiscountRequest[] @relation("AdminApprovals")
   approvedInquiries DiscountInquiry[] @relation("InquiryApprovals")
   plans             Plan[]
+
+  vendorProfile      VendorProfile?          @relation("VendorUserProfile")
+  vendorAssignments  VendorSiteAssignment[]  @relation("VendorAssignments")
+  vendorAssignedBy   VendorSiteAssignment[]  @relation("VendorAssignedBy")
+  vendorProofs       VendorSiteProof[]       @relation("VendorProofs")
+  vendorProofReviews VendorSiteProof[]       @relation("VendorProofApprovals")
 }
 
 // ... existing models ...
@@ -117,6 +145,7 @@ model Lead {
   discountRequests DiscountRequest[]
   campaignItems    LeadCampaignItem[]
   payment          LeadPayment?
+  vendorAssignments VendorSiteAssignment[]
 
   @@index([assigneeId])
   @@index([salesUserId])
@@ -352,6 +381,8 @@ model InventoryHoarding {
   currentLeadId       Int?
   
   leadItems           LeadCampaignItem[]
+  vendorAssignments   VendorSiteAssignment[]
+  vendorProofs        VendorSiteProof[]
   
   @@index([state, district, availabilityStatus])
   @@index([outletName])
@@ -390,6 +421,7 @@ model LeadCampaignItem {
   bookingUpdatedAt DateTime? @map("booking_updated_at") // Removed @default(now()) for SQLite compatibility
   
   createdAt      DateTime @default(now())
+  vendorAssignments VendorSiteAssignment[]
   
   @@index([leadId])
   @@index([inventoryHoardingId])
@@ -505,4 +537,83 @@ model AdminOtp {
   createdAt       DateTime        @default(now())
 }
 
+model VendorProfile {
+  id          String   @id @default(cuid())
+  userId      Int      @unique
+  user        User     @relation("VendorUserProfile", fields: [userId], references: [id])
+  companyName String?
+  phone       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model VendorSiteAssignment {
+  id                  String                 @id @default(cuid())
+  vendorId            Int
+  vendor              User                   @relation("VendorAssignments", fields: [vendorId], references: [id])
+  inventoryHoardingId Int
+  inventoryHoarding   InventoryHoarding      @relation(fields: [inventoryHoardingId], references: [id])
+  leadId              Int?
+  lead                Lead?                  @relation(fields: [leadId], references: [id])
+  leadCampaignItemId  Int?
+  leadCampaignItem    LeadCampaignItem?      @relation(fields: [leadCampaignItemId], references: [id])
+  assignedById        Int
+  assignedBy          User                   @relation("VendorAssignedBy", fields: [assignedById], references: [id])
+  status              VendorAssignmentStatus @default(ASSIGNED_TO_VENDOR)
+  notes               String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  proofs              VendorSiteProof[]
+
+  @@index([vendorId, status])
+  @@index([inventoryHoardingId])
+  @@index([leadId])
+  @@index([leadCampaignItemId])
+  @@index([assignedById])
+}
+
+model VendorSiteProof {
+  id                  String            @id @default(cuid())
+  assignmentId        String
+  assignment          VendorSiteAssignment @relation(fields: [assignmentId], references: [id])
+  vendorId            Int
+  vendor              User              @relation("VendorProofs", fields: [vendorId], references: [id])
+  inventoryHoardingId Int
+  inventoryHoarding   InventoryHoarding @relation(fields: [inventoryHoardingId], references: [id])
+  latitude            Decimal
+  longitude           Decimal
+  accuracy            Decimal?
+  status              VendorProofStatus @default(DRAFT)
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  approvedById        Int?
+  approvedBy          User?             @relation("VendorProofApprovals", fields: [approvedById], references: [id])
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  media               VendorSiteProofMedia[]
+
+  @@index([assignmentId, status])
+  @@index([vendorId])
+  @@index([inventoryHoardingId])
+  @@index([approvedById])
+}
+
+model VendorSiteProofMedia {
+  id        String               @id @default(cuid())
+  proofId   String
+  proof     VendorSiteProof      @relation(fields: [proofId], references: [id])
+  type      VendorProofMediaType
+  url       String
+  fileName  String
+  mimeType  String
+  size      Int
+  createdAt DateTime             @default(now())
+
+  @@index([proofId, type])
+}
 

@@ -94,6 +94,9 @@ function LoginForm() {
                     case "OPERATIONS":
                         targetUrl = "/dashboard/operations"
                         break
+                    case "VENDOR":
+                        targetUrl = "/dashboard/vendor"
+                        break
                     default:
                         targetUrl = "/dashboard/sales"
                 }

@@ -21,6 +21,10 @@ export default withAuth(
         if (path.startsWith("/dashboard/operations") && !["OPERATIONS", "ADMIN", "SUPER_ADMIN"].includes(token?.role as string)) {
             return NextResponse.redirect(new URL("/dashboard", req.url))
         }
+
+        if (path.startsWith("/dashboard/vendor") && !["VENDOR"].includes(token?.role as string)) {
+            return NextResponse.redirect(new URL("/dashboard", req.url))
+        }
     },
     {
         callbacks: {

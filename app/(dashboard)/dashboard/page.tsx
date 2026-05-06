@@ -21,6 +21,8 @@ export default async function DashboardPage() {
         redirect("/dashboard/finance")
     } else if (role === "OPERATIONS") {
         redirect("/dashboard/operations")
+    } else if (role === "VENDOR") {
+        redirect("/dashboard/vendor")
     } else {
         redirect("/dashboard/sales")
     }
