@@ -49,11 +49,11 @@ type PresignedUploadItem = {
     publicUrl: string
 }
 
-const MAX_PHOTOS = 5
-const MAX_VIDEOS = 2
-const MAX_VIDEO_DURATION_SECONDS = 10
-const MAX_TOTAL_UPLOAD_BYTES = 4 * 1024 * 1024 // ~4 MB safe payload for serverless
-const MAX_VIDEO_FILE_BYTES = 3 * 1024 * 1024 // ~3 MB per video
+const MAX_PHOTOS = 10
+const MAX_VIDEOS = 5
+const MAX_VIDEO_DURATION_SECONDS = 60
+const MAX_TOTAL_UPLOAD_BYTES = 100 * 1024 * 1024
+const MAX_VIDEO_FILE_BYTES = 50 * 1024 * 1024
 const IMAGE_COMPRESS_THRESHOLD_BYTES = 1200 * 1024 // compress images above ~1.2 MB
 const RECORDER_VIDEO_BITS_PER_SECOND = 1_500_000
 const RECORDER_AUDIO_BITS_PER_SECOND = 96_000
@@ -757,7 +757,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
             {canUploadForStatus(assignment.status) && (
                 <form onSubmit={submitProof} className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
                     <h2 className="text-lg font-semibold text-gray-900">Upload Live Proof</h2>
-                    <p className="text-sm text-gray-600">Upload up to 5 photos and 2 videos. Location is mandatory.</p>
+                    <p className="text-sm text-gray-600">Upload up to 10 photos and 5 videos. Location is mandatory.</p>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Media Files</label>
@@ -791,7 +791,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                             disabled={recordingStarting || recordingInProgress}
                             className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
                         >
-                            {recordingStarting ? "Opening Camera..." : recordingInProgress ? `Recording... ${recordingSecondsLeft}s` : "Capture Video (10s Auto Stop)"}
+                            {recordingStarting ? "Opening Camera..." : recordingInProgress ? `Recording... ${recordingSecondsLeft}s` : "Capture Video (60s Auto Stop)"}
                         </button>
                         <button
                             type="button"

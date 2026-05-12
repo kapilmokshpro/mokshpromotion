@@ -4,10 +4,10 @@ import crypto from "crypto"
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import { VendorProofMediaType } from "@prisma/client"
 
-export const MAX_VENDOR_PROOF_PHOTOS = 5
-export const MAX_VENDOR_PROOF_VIDEOS = 2
-export const MAX_VENDOR_PROOF_TOTAL_BYTES = 4 * 1024 * 1024
-export const MAX_VENDOR_PROOF_VIDEO_BYTES = 3 * 1024 * 1024
+export const MAX_VENDOR_PROOF_PHOTOS = 10
+export const MAX_VENDOR_PROOF_VIDEOS = 5
+export const MAX_VENDOR_PROOF_TOTAL_BYTES = 100 * 1024 * 1024
+export const MAX_VENDOR_PROOF_VIDEO_BYTES = 50 * 1024 * 1024
 
 const IMAGE_MIME_TYPES = new Set([
     "image/jpeg",
@@ -221,11 +221,18 @@ const resolveMediaType = (fileName: string, mimeType: string) => {
     const normalizedMimeType = (mimeType || "").toLowerCase()
     const extension = path.extname(fileName || "").toLowerCase()
 
-    const isImage = IMAGE_MIME_TYPES.has(normalizedMimeType) || (!normalizedMimeType && IMAGE_EXTENSIONS.has(extension))
-    const isVideo = VIDEO_MIME_TYPES.has(normalizedMimeType) || (!normalizedMimeType && VIDEO_EXTENSIONS.has(extension))
+    const isImageMime = IMAGE_MIME_TYPES.has(normalizedMimeType)
+    const isImageExt = IMAGE_EXTENSIONS.has(extension)
+    const isVideoMime = VIDEO_MIME_TYPES.has(normalizedMimeType)
+    const isVideoExt = VIDEO_EXTENSIONS.has(extension)
 
-    if (isImage) return VendorProofMediaType.PHOTO
-    if (isVideo) return VendorProofMediaType.VIDEO
+    if (isImageMime || isImageExt) return VendorProofMediaType.PHOTO
+    if (isVideoMime || isVideoExt) return VendorProofMediaType.VIDEO
+
+    // Fallback for generic types if extension matches
+    if (normalizedMimeType.startsWith("image/") || isImageExt) return VendorProofMediaType.PHOTO
+    if (normalizedMimeType.startsWith("video/") || isVideoExt) return VendorProofMediaType.VIDEO
+
     return null
 }
 
