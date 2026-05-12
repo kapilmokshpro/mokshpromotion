@@ -51,7 +51,7 @@ type PresignedUploadItem = {
 
 const MAX_PHOTOS = 10
 const MAX_VIDEOS = 5
-const MAX_VIDEO_DURATION_SECONDS = 60
+const MAX_VIDEO_DURATION_SECONDS = 10
 const MAX_TOTAL_UPLOAD_BYTES = 100 * 1024 * 1024
 const MAX_VIDEO_FILE_BYTES = 50 * 1024 * 1024
 const IMAGE_COMPRESS_THRESHOLD_BYTES = 1200 * 1024 // compress images above ~1.2 MB
@@ -791,7 +791,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                             disabled={recordingStarting || recordingInProgress}
                             className="px-3 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
                         >
-                            {recordingStarting ? "Opening Camera..." : recordingInProgress ? `Recording... ${recordingSecondsLeft}s` : "Capture Video (60s Auto Stop)"}
+                            {recordingStarting ? "Opening Camera..." : recordingInProgress ? `Recording... ${recordingSecondsLeft}s` : "Capture Video (10s Auto Stop)"}
                         </button>
                         <button
                             type="button"
