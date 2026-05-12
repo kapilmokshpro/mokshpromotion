@@ -28,7 +28,6 @@ const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".h
 const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".webm"])
 
 const PUBLIC_UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads", "vendor-proofs")
-const VENDOR_MEDIA_STORAGE = (process.env.VENDOR_MEDIA_STORAGE || "local").trim().toLowerCase()
 
 export type S3StorageConfig = {
     bucket: string
@@ -67,6 +66,13 @@ let s3StorageConfigCache: S3StorageConfig | null = null
 let s3StorageConfigLoaded = false
 
 const trimEnv = (value?: string | null) => (value || "").trim()
+const pickEnv = (...keys: string[]) => {
+    for (const key of keys) {
+        const value = trimEnv(process.env[key])
+        if (value) return value
+    }
+    return ""
+}
 
 const parseBooleanEnv = (value: string | undefined, fallback = false) => {
     const normalized = (value || "").trim().toLowerCase()
@@ -76,37 +82,55 @@ const parseBooleanEnv = (value: string | undefined, fallback = false) => {
 
 const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, "")
 
-export const getVendorMediaStorageMode = () => VENDOR_MEDIA_STORAGE
+const resolveVendorMediaStorageMode = () => {
+    const normalized = (process.env.VENDOR_MEDIA_STORAGE || "local").trim().toLowerCase()
+    if (!normalized || normalized === "local") return "local"
+    if (normalized === "s3" || normalized === "r2") return "s3"
+    return "local"
+}
+
+export const getVendorMediaStorageMode = () => resolveVendorMediaStorageMode()
 
 export const resolveS3StorageConfig = (): S3StorageConfig | null => {
     if (s3StorageConfigLoaded) return s3StorageConfigCache
     s3StorageConfigLoaded = true
 
-    if (VENDOR_MEDIA_STORAGE !== "s3") {
+    if (resolveVendorMediaStorageMode() !== "s3") {
         s3StorageConfigCache = null
         return null
     }
 
-    const bucket = trimEnv(process.env.VENDOR_MEDIA_S3_BUCKET)
-    const regionRaw = trimEnv(process.env.VENDOR_MEDIA_S3_REGION)
-    const endpointRaw = trimEnv(process.env.VENDOR_MEDIA_S3_ENDPOINT)
-    const accessKeyId = trimEnv(process.env.VENDOR_MEDIA_S3_ACCESS_KEY_ID)
-    const secretAccessKey = trimEnv(process.env.VENDOR_MEDIA_S3_SECRET_ACCESS_KEY)
-    const publicBaseUrlRaw = trimEnv(process.env.VENDOR_MEDIA_PUBLIC_BASE_URL)
+    const bucket = pickEnv("VENDOR_MEDIA_S3_BUCKET", "VENDOR_MEDIA_R2_BUCKET")
+    const regionRaw = pickEnv("VENDOR_MEDIA_S3_REGION", "VENDOR_MEDIA_R2_REGION")
+    const endpointRaw = pickEnv("VENDOR_MEDIA_S3_ENDPOINT", "VENDOR_MEDIA_R2_ENDPOINT")
+    const accessKeyId = pickEnv("VENDOR_MEDIA_S3_ACCESS_KEY_ID", "VENDOR_MEDIA_R2_ACCESS_KEY_ID")
+    const secretAccessKey = pickEnv("VENDOR_MEDIA_S3_SECRET_ACCESS_KEY", "VENDOR_MEDIA_R2_SECRET_ACCESS_KEY")
+    const publicBaseUrlRaw = pickEnv(
+        "VENDOR_MEDIA_PUBLIC_BASE_URL",
+        "VENDOR_MEDIA_S3_PUBLIC_BASE_URL",
+        "VENDOR_MEDIA_R2_PUBLIC_BASE_URL"
+    )
 
     if (!bucket) {
-        throw new Error("Missing VENDOR_MEDIA_S3_BUCKET for vendor media storage")
+        throw new Error("Missing vendor media bucket env (VENDOR_MEDIA_S3_BUCKET or VENDOR_MEDIA_R2_BUCKET)")
     }
     if (!accessKeyId || !secretAccessKey) {
-        throw new Error("Missing VENDOR_MEDIA_S3_ACCESS_KEY_ID or VENDOR_MEDIA_S3_SECRET_ACCESS_KEY")
+        throw new Error("Missing vendor media access keys (S3/R2 access key id or secret)")
     }
 
     const region = regionRaw || (endpointRaw.includes("r2.cloudflarestorage.com") ? "auto" : "us-east-1")
     const endpoint = endpointRaw ? stripTrailingSlashes(endpointRaw) : undefined
+    const forcePathStyleValue = pickEnv("VENDOR_MEDIA_S3_FORCE_PATH_STYLE", "VENDOR_MEDIA_R2_FORCE_PATH_STYLE")
     const forcePathStyle = parseBooleanEnv(
-        process.env.VENDOR_MEDIA_S3_FORCE_PATH_STYLE,
+        forcePathStyleValue,
         !!endpoint
     )
+
+    if (endpoint?.includes("r2.cloudflarestorage.com") && !publicBaseUrlRaw) {
+        throw new Error(
+            "Missing VENDOR_MEDIA_PUBLIC_BASE_URL for R2 media rendering. Use your public R2 domain (custom domain or r2.dev URL)."
+        )
+    }
 
     s3StorageConfigCache = {
         bucket,

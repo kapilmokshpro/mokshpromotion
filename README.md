@@ -55,6 +55,15 @@ npm run db:push
 - `NEXTAUTH_URL=https://your-domain.com`
 - `NEXT_PUBLIC_APP_URL=https://your-domain.com`
 
+9. If vendor proof media is on Cloudflare R2, add:
+- `VENDOR_MEDIA_STORAGE=s3` (or `r2`)
+- `VENDOR_MEDIA_S3_BUCKET=<bucket-name>`
+- `VENDOR_MEDIA_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`
+- `VENDOR_MEDIA_S3_ACCESS_KEY_ID=<r2-access-key-id>`
+- `VENDOR_MEDIA_S3_SECRET_ACCESS_KEY=<r2-secret-access-key>`
+- `VENDOR_MEDIA_S3_FORCE_PATH_STYLE=true`
+- `VENDOR_MEDIA_PUBLIC_BASE_URL=<public-r2-domain>` (required for image/video rendering in browser; use your custom domain or `https://pub-xxxx.r2.dev`)
+
 ## Notes
 
 - Scripts are now cross-platform (Windows/Linux/macOS) and Vercel-safe.
