@@ -270,7 +270,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
         try {
             const primary = await requestCurrentPosition({
                 enableHighAccuracy: true,
-                timeout: 12000,
+                timeout: 20000,
                 maximumAge: 0,
             })
 
@@ -281,6 +281,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
             setGpsStatus("locked")
             setGpsMessage("High-accuracy GPS lock acquired.")
             setCapturingLocation(false)
+            console.log("GPS Locked (High Accuracy):", primary.coords.latitude, primary.coords.longitude)
             return
         } catch {
             setGpsMessage("High-accuracy lock timed out. Retrying fallback...")
@@ -305,12 +306,12 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
             const unavailable = errorCode === 2
             const timedOut = errorCode === 3
             const fallbackMessage = denied
-                ? "Location permission denied."
+                ? "Location permission denied. On iPhone, check Settings > Privacy > Location Services > Safari."
                 : unavailable
-                    ? "Location unavailable. Move to open area and retry."
+                    ? "Location unavailable. Move to an open area and retry."
                     : timedOut
-                        ? "Location request timed out."
-                        : "Unable to capture location."
+                        ? "Location request timed out. Try moving near a window."
+                        : "Unable to capture location. Ensure GPS is enabled."
 
             setGpsStatus("failed")
             setGpsMessage(fallbackMessage)
@@ -406,9 +407,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                    facingMode: { ideal: "environment" },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    facingMode: "environment",
                 },
                 audio: true
             })
@@ -514,7 +513,9 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                 return
             }
 
-            setError("Unable to start camera recording on this device/browser.")
+            // Fallback for iOS/Safari where getUserMedia might fail even if MediaRecorder is present
+            console.warn("Inline recorder failed, falling back to native camera:", err)
+            videoInputRef.current?.click()
         }
     }
 
