@@ -179,12 +179,8 @@ export const buildVendorProofStoredFileName = (sourceName: string) => {
     return `${Date.now()}-${uniquePart}-${safeBase}${extension}`
 }
 
-export const buildVendorProofObjectKey = (params: {
-    vendorId: number
-    assignmentId: string
-    finalName: string
-}) => {
-    const objectPrefix = stripEdgeSlashes(
+export const getVendorProofObjectPrefix = () => {
+    return stripEdgeSlashes(
         pickEnv(
             "VENDOR_MEDIA_OBJECT_PREFIX",
             "VENDOR_MEDIA_S3_OBJECT_PREFIX",
@@ -192,6 +188,14 @@ export const buildVendorProofObjectKey = (params: {
             "R2_UPLOAD_PREFIX"
         ) || "vendor-proofs"
     )
+}
+
+export const buildVendorProofObjectKey = (params: {
+    vendorId: number
+    assignmentId: string
+    finalName: string
+}) => {
+    const objectPrefix = getVendorProofObjectPrefix()
 
     return path.posix.join(
         objectPrefix,

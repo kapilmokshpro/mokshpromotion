@@ -6,6 +6,7 @@ import {
     MAX_VENDOR_PROOF_VIDEOS,
     buildVendorProofCloudPublicUrl,
     getVendorMediaStorageMode,
+    getVendorProofObjectPrefix,
     parseAndValidateProofFiles,
     parseAndValidateProofUploadCandidates,
     resolveS3StorageConfig,
@@ -103,7 +104,8 @@ export async function POST(
             storedFiles = parsedUploaded.map((media, index) => {
                 const item = uploadedMedia[index]
                 const key = typeof item?.key === "string" ? item.key.trim() : ""
-                const expectedPrefix = `vendor-proofs/${vendorId}/${assignment.id}/`
+                const prefix = getVendorProofObjectPrefix()
+                const expectedPrefix = `${prefix}/${vendorId}/${assignment.id}/`
                 if (!key || !key.startsWith(expectedPrefix)) {
                     throw new Error(`Invalid uploaded object key for ${media.fileName}`)
                 }
