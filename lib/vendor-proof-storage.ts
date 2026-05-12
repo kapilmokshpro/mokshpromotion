@@ -81,6 +81,7 @@ const parseBooleanEnv = (value: string | undefined, fallback = false) => {
 }
 
 const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, "")
+const stripEdgeSlashes = (value: string) => value.replace(/^\/+|\/+$/g, "")
 
 const resolveVendorMediaStorageMode = () => {
     const normalized = (process.env.VENDOR_MEDIA_STORAGE || "local").trim().toLowerCase()
@@ -100,15 +101,18 @@ export const resolveS3StorageConfig = (): S3StorageConfig | null => {
         return null
     }
 
-    const bucket = pickEnv("VENDOR_MEDIA_S3_BUCKET", "VENDOR_MEDIA_R2_BUCKET")
-    const regionRaw = pickEnv("VENDOR_MEDIA_S3_REGION", "VENDOR_MEDIA_R2_REGION")
-    const endpointRaw = pickEnv("VENDOR_MEDIA_S3_ENDPOINT", "VENDOR_MEDIA_R2_ENDPOINT")
-    const accessKeyId = pickEnv("VENDOR_MEDIA_S3_ACCESS_KEY_ID", "VENDOR_MEDIA_R2_ACCESS_KEY_ID")
-    const secretAccessKey = pickEnv("VENDOR_MEDIA_S3_SECRET_ACCESS_KEY", "VENDOR_MEDIA_R2_SECRET_ACCESS_KEY")
+    const bucket = pickEnv("VENDOR_MEDIA_S3_BUCKET", "VENDOR_MEDIA_R2_BUCKET", "R2_BUCKET_NAME")
+    const regionRaw = pickEnv("VENDOR_MEDIA_S3_REGION", "VENDOR_MEDIA_R2_REGION", "R2_REGION")
+    const accountId = pickEnv("R2_ACCOUNT_ID", "VENDOR_MEDIA_R2_ACCOUNT_ID")
+    const endpointRaw = pickEnv("VENDOR_MEDIA_S3_ENDPOINT", "VENDOR_MEDIA_R2_ENDPOINT", "R2_ENDPOINT")
+    const resolvedEndpointRaw = endpointRaw || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : "")
+    const accessKeyId = pickEnv("VENDOR_MEDIA_S3_ACCESS_KEY_ID", "VENDOR_MEDIA_R2_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID")
+    const secretAccessKey = pickEnv("VENDOR_MEDIA_S3_SECRET_ACCESS_KEY", "VENDOR_MEDIA_R2_SECRET_ACCESS_KEY", "R2_SECRET_ACCESS_KEY")
     const publicBaseUrlRaw = pickEnv(
         "VENDOR_MEDIA_PUBLIC_BASE_URL",
         "VENDOR_MEDIA_S3_PUBLIC_BASE_URL",
-        "VENDOR_MEDIA_R2_PUBLIC_BASE_URL"
+        "VENDOR_MEDIA_R2_PUBLIC_BASE_URL",
+        "R2_PUBLIC_URL"
     )
 
     if (!bucket) {
@@ -118,9 +122,9 @@ export const resolveS3StorageConfig = (): S3StorageConfig | null => {
         throw new Error("Missing vendor media access keys (S3/R2 access key id or secret)")
     }
 
-    const region = regionRaw || (endpointRaw.includes("r2.cloudflarestorage.com") ? "auto" : "us-east-1")
-    const endpoint = endpointRaw ? stripTrailingSlashes(endpointRaw) : undefined
-    const forcePathStyleValue = pickEnv("VENDOR_MEDIA_S3_FORCE_PATH_STYLE", "VENDOR_MEDIA_R2_FORCE_PATH_STYLE")
+    const region = regionRaw || (resolvedEndpointRaw.includes("r2.cloudflarestorage.com") ? "auto" : "us-east-1")
+    const endpoint = resolvedEndpointRaw ? stripTrailingSlashes(resolvedEndpointRaw) : undefined
+    const forcePathStyleValue = pickEnv("VENDOR_MEDIA_S3_FORCE_PATH_STYLE", "VENDOR_MEDIA_R2_FORCE_PATH_STYLE", "R2_FORCE_PATH_STYLE")
     const forcePathStyle = parseBooleanEnv(
         forcePathStyleValue,
         !!endpoint
@@ -129,6 +133,11 @@ export const resolveS3StorageConfig = (): S3StorageConfig | null => {
     if (endpoint?.includes("r2.cloudflarestorage.com") && !publicBaseUrlRaw) {
         throw new Error(
             "Missing VENDOR_MEDIA_PUBLIC_BASE_URL for R2 media rendering. Use your public R2 domain (custom domain or r2.dev URL)."
+        )
+    }
+    if (publicBaseUrlRaw.includes("r2.cloudflarestorage.com")) {
+        throw new Error(
+            "R2 public URL is invalid for browser rendering. Use a public custom domain or an r2.dev URL in VENDOR_MEDIA_PUBLIC_BASE_URL."
         )
     }
 
@@ -175,8 +184,17 @@ export const buildVendorProofObjectKey = (params: {
     assignmentId: string
     finalName: string
 }) => {
+    const objectPrefix = stripEdgeSlashes(
+        pickEnv(
+            "VENDOR_MEDIA_OBJECT_PREFIX",
+            "VENDOR_MEDIA_S3_OBJECT_PREFIX",
+            "VENDOR_MEDIA_R2_OBJECT_PREFIX",
+            "R2_UPLOAD_PREFIX"
+        ) || "vendor-proofs"
+    )
+
     return path.posix.join(
-        "vendor-proofs",
+        objectPrefix,
         String(params.vendorId),
         params.assignmentId,
         params.finalName
@@ -349,6 +367,12 @@ export async function storeVendorProofFiles(params: {
         }
 
         return storedCloud
+    }
+
+    if (process.env.VERCEL === "1") {
+        throw new Error(
+            "Local vendor media storage is not supported on Vercel. Set VENDOR_MEDIA_STORAGE=s3 (or r2) and configure R2/S3 env variables."
+        )
     }
 
     const folderPath = path.join(
