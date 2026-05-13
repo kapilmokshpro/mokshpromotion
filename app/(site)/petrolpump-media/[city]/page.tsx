@@ -8,6 +8,7 @@ type NullableNumberLike = number | string | null | undefined
 
 interface RawCityHoarding {
     id: number
+    inventoryCode: string | null
     outletName: string | null
     name: string | null
     locationName: string | null
@@ -69,6 +70,7 @@ export default async function CityMediaPage({ params }: { params: { city: string
             },
             select: {
                 id: true,
+                inventoryCode: true,
                 outletName: true,
                 name: true,
                 locationName: true,
@@ -135,6 +137,7 @@ export default async function CityMediaPage({ params }: { params: { city: string
                     },
                     select: {
                         id: true,
+                        inventoryCode: true,
                         outletName: true,
                         name: true,
                         locationName: true,
@@ -200,8 +203,68 @@ export default async function CityMediaPage({ params }: { params: { city: string
         )
     }
 
-    const normalizedHoardings = cityHoardings.map((h) => {
+    const getSiteSignatureKey = (row: RawCityHoarding) => {
+        const code = (row.inventoryCode || "").trim().toLowerCase()
+        if (code) return `code:${code}`
+
+        const outlet = (row.outletName || row.name || "").trim().toLowerCase()
+        const location = (row.locationName || row.location || "").trim().toLowerCase()
+        const district = (row.district || "").trim().toLowerCase()
+        const state = (row.state || "").trim().toLowerCase()
+        return `sig:${outlet}|${location}|${district}|${state}`
+    }
+
+    const directMediaBySite = cityHoardings.map((row) => {
+        const mediaImages = (Array.isArray(row.siteMedia) ? row.siteMedia : [])
+            .filter((media) => media.type === "IMAGE")
+            .slice(0, 5)
+            .map((media) => resolveSiteMediaUrl(media))
+            .filter((url): url is string => typeof url === "string" && url.length > 0)
+
+        const mediaVideoUrl = (Array.isArray(row.siteMedia) ? row.siteMedia : [])
+            .filter((media) => media.type === "VIDEO")
+            .slice(0, 1)
+            .map((media) => resolveSiteMediaUrl(media))
+            .find((url): url is string => typeof url === "string" && url.length > 0) || null
+
+        return {
+            mediaImages,
+            mediaVideoUrl,
+            imageUrl: row.imageUrl || null,
+            view360Url: row.view360Url || null,
+        }
+    })
+
+    const bestMediaBySignature = new Map<
+        string,
+        { mediaImages: string[]; mediaVideoUrl: string | null; imageUrl: string | null; view360Url: string | null }
+    >()
+
+    cityHoardings.forEach((row, index) => {
+        const key = getSiteSignatureKey(row)
+        const current = directMediaBySite[index]
+        const score = current.mediaImages.length * 10 + (current.mediaVideoUrl ? 5 : 0) + (current.imageUrl ? 1 : 0)
+        const existing = bestMediaBySignature.get(key)
+        const existingScore = existing ? existing.mediaImages.length * 10 + (existing.mediaVideoUrl ? 5 : 0) + (existing.imageUrl ? 1 : 0) : -1
+        if (score > existingScore) {
+            bestMediaBySignature.set(key, current)
+        }
+    })
+
+    const normalizedHoardings = cityHoardings.map((h, index) => {
         const row = h as unknown as RawCityHoarding
+        const direct = directMediaBySite[index]
+        const fallback = bestMediaBySignature.get(getSiteSignatureKey(row))
+        const effectiveImages = direct.mediaImages.length > 0
+            ? direct.mediaImages
+            : fallback?.mediaImages?.length
+                ? fallback.mediaImages
+                : row.imageUrl
+                    ? [row.imageUrl]
+                    : []
+        const effectiveVideo = direct.mediaVideoUrl || fallback?.mediaVideoUrl || null
+        const effectiveView360 = row.view360Url || fallback?.view360Url || null
+
         return {
             ...row,
             location: row.location ?? row.locationName ?? "",
@@ -221,18 +284,10 @@ export default async function CityMediaPage({ params }: { params: { city: string
             printingCharge: toNumber(row.printingCharge),
             netTotal: toNumber(row.netTotal),
             computedNetTotal: toNumber(row.computedNetTotal),
-            view360Url: row.view360Url || null,
+            view360Url: effectiveView360,
             imageUrl: row.imageUrl || null,
-            mediaImages: (Array.isArray(row.siteMedia) ? row.siteMedia : [])
-                .filter((media) => media.type === "IMAGE")
-                .slice(0, 5)
-                .map((media) => resolveSiteMediaUrl(media))
-                .filter((url): url is string => typeof url === "string" && url.length > 0),
-            mediaVideoUrl: (Array.isArray(row.siteMedia) ? row.siteMedia : [])
-                .filter((media) => media.type === "VIDEO")
-                .slice(0, 1)
-                .map((media) => resolveSiteMediaUrl(media))
-                .find((url): url is string => typeof url === "string" && url.length > 0) || null,
+            mediaImages: effectiveImages,
+            mediaVideoUrl: effectiveVideo,
         }
     })
 
