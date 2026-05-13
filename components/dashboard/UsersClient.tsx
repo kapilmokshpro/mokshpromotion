@@ -93,6 +93,7 @@ export default function UsersPage({
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
                                     user.role === 'SALES' ? 'bg-blue-100 text-blue-800' :
+                                    user.role === 'SITE_MEDIA' ? 'bg-cyan-100 text-cyan-800' :
                                     user.role === 'VENDOR' ? 'bg-amber-100 text-amber-800' :
                                     'bg-gray-100 text-gray-800'}`}>
                                 {user.role}
@@ -147,6 +148,7 @@ export default function UsersPage({
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                     ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
                                             user.role === 'SALES' ? 'bg-blue-100 text-blue-800' :
+                                            user.role === 'SITE_MEDIA' ? 'bg-cyan-100 text-cyan-800' :
                                             user.role === 'VENDOR' ? 'bg-amber-100 text-amber-800' :
                                                 'bg-gray-100 text-gray-800'}`}>
                                         {user.role}

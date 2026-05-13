@@ -115,6 +115,7 @@ export default function EditUserModal({
                             <option value="OPERATIONS">Operations</option>
                             <option value="ADMIN">Admin</option>
                             <option value="VENDOR">Vendor</option>
+                            <option value="SITE_MEDIA">Site Media</option>
                         </select>
                     </div>
 

@@ -20,7 +20,8 @@ import {
     ChevronRight,
     Search,
     Bell,
-    ClipboardList
+    ClipboardList,
+    Image
 } from "lucide-react"
 
 interface SidebarProps {
@@ -41,8 +42,16 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
                 pathname === "/dashboard/admin" ||
                 pathname === "/dashboard/finance" ||
                 pathname === "/dashboard/operations" ||
-                pathname === "/dashboard/vendor",
-            roles: ["ADMIN", "SALES", "FINANCE", "OPERATIONS", "VENDOR"]
+                pathname === "/dashboard/vendor" ||
+                pathname === "/dashboard/site-media",
+            roles: ["ADMIN", "SALES", "FINANCE", "OPERATIONS", "VENDOR", "SITE_MEDIA"]
+        },
+        {
+            label: "Site Media",
+            href: "/dashboard/site-media",
+            icon: Image,
+            active: pathname.includes("/dashboard/site-media"),
+            roles: ["SITE_MEDIA", "ADMIN"]
         },
         {
             label: "Vendor Overview",

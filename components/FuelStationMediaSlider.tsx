@@ -94,8 +94,8 @@ export default function FuelStationMediaSlider({ images }: FuelStationMediaSlide
 
             <div className="overflow-hidden py-4">
                 <div
-                    className="flex transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]"
-                    style={{ transform: `translateX(${translateX}%)` }}
+                    className="flex transition-transform duration-700"
+                    style={{ transform: `translateX(${translateX}%)`, transitionTimingFunction: "cubic-bezier(0.25,1,0.5,1)" }}
                 >
                     {images.map((image, index) => (
                         <div

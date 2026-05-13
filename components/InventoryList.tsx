@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogClose, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map, Search } from "lucide-react";
+import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map, Search, ChevronLeft } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,9 @@ interface InventoryItem {
     installationCharge: number | null;
     netTotal: number | null;
     imageUrl?: string | null;
+    mediaImages?: string[];
+    mediaVideoUrl?: string | null;
+    view360Url?: string | null;
     availabilityStatus?: string;
 }
 
@@ -43,6 +46,7 @@ type ViewState = "STATES" | "DISTRICTS" | "ITEMS";
 export default function InventoryList({ inventory }: InventoryListProps) {
     const { toggleCartItem, isInCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState("");
 
     const availableInventory = useMemo(() => inventory, [inventory]);
@@ -162,8 +166,17 @@ export default function InventoryList({ inventory }: InventoryListProps) {
 
     const handleRowClick = (item: InventoryItem, event: React.MouseEvent) => {
         if ((event.target as HTMLElement).closest(".no-modal-trigger")) return;
+        setCurrentImageIndex(0);
         setSelectedItem(item);
     };
+
+    const activeMediaImages = selectedItem?.mediaImages?.length
+        ? selectedItem.mediaImages
+        : selectedItem?.imageUrl
+            ? [selectedItem.imageUrl]
+            : [];
+
+    const activeMediaImage = activeMediaImages[currentImageIndex] || null;
 
     return (
         <div className="space-y-6">
@@ -322,7 +335,14 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-bold text-[#002147]">{formatCurrency((item.ratePerSqft || item.rate) || 0)}</td>
                                                 <td className="px-6 py-4 text-center no-modal-trigger">
-                                                    <Button variant="ghost" size="sm" onClick={() => setSelectedItem(item)}>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setCurrentImageIndex(0);
+                                                            setSelectedItem(item);
+                                                        }}
+                                                    >
                                                         <Info className="w-4 h-4" />
                                                     </Button>
                                                 </td>
@@ -338,6 +358,12 @@ export default function InventoryList({ inventory }: InventoryListProps) {
 
             <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
                 <DialogContent className="max-w-3xl overflow-hidden p-0 gap-0">
+                    <DialogTitle className="sr-only">
+                        {selectedItem?.outletName ? `${selectedItem.outletName} site details` : "Site details"}
+                    </DialogTitle>
+                    <DialogDescription className="sr-only">
+                        Preview site media, 360 link, specifications and financial details.
+                    </DialogDescription>
                     <div className="bg-[#002147] p-6 text-white flex justify-between items-start">
                         <div>
                             <div className="flex items-center gap-3">
@@ -360,8 +386,44 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-6">
                                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm aspect-video flex items-center justify-center bg-gray-100 overflow-hidden relative">
-                                    {selectedItem?.imageUrl ? (
-                                        <Image src={selectedItem.imageUrl} alt={selectedItem.outletName} fill className="object-cover" />
+                                    {activeMediaImage ? (
+                                        <>
+                                            <Image
+                                                src={activeMediaImage}
+                                                alt={selectedItem?.outletName || "Site image"}
+                                                fill
+                                                unoptimized
+                                                sizes="(max-width: 768px) 100vw, 50vw"
+                                                quality={70}
+                                                className="object-cover"
+                                            />
+                                            {activeMediaImages.length > 1 && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setCurrentImageIndex((prev) =>
+                                                                prev === 0 ? activeMediaImages.length - 1 : prev - 1
+                                                            )
+                                                        }
+                                                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+                                                    >
+                                                        <ChevronLeft className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setCurrentImageIndex((prev) =>
+                                                                prev === activeMediaImages.length - 1 ? 0 : prev + 1
+                                                            )
+                                                        }
+                                                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+                                                    >
+                                                        <ChevronRight className="h-4 w-4" />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </>
                                     ) : (
                                         <div className="text-center text-gray-400">
                                             <Maximize2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -375,6 +437,21 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                         Media Highlights
                                     </h3>
                                     <ul className="text-sm text-gray-700 space-y-1 ml-5 list-disc">
+                                        <li>{activeMediaImages.length} active image(s)</li>
+                                        <li>{selectedItem?.mediaVideoUrl ? "1 active video available" : "No active video uploaded"}</li>
+                                        {selectedItem?.view360Url && (
+                                            <li>
+                                                360 view:{" "}
+                                                <a
+                                                    href={selectedItem.view360Url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-blue-700 hover:text-blue-900 underline"
+                                                >
+                                                    Open link
+                                                </a>
+                                            </li>
+                                        )}
                                         <li>High visibility location</li>
                                         <li>24/7 Illumination available</li>
                                         <li>High footfall area</li>
@@ -398,6 +475,18 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                         </div>
                                     </div>
                                 </div>
+
+                                {selectedItem?.mediaVideoUrl && (
+                                    <div className="pt-4 border-t border-gray-200">
+                                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Video Preview</h3>
+                                        <video
+                                            controls
+                                            preload="metadata"
+                                            className="w-full rounded-lg border border-gray-200"
+                                            src={selectedItem.mediaVideoUrl}
+                                        />
+                                    </div>
+                                )}
 
                                 <div className="pt-4 border-t border-gray-200">
                                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Financials</h3>

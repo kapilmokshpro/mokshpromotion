@@ -89,6 +89,7 @@ export async function POST(req: Request) {
                                     computedArea: item.computedArea,
                                     computedBaseCost: item.computedBaseCost,
                                     computedNetTotal: item.computedNetTotal,
+                                    view360Url: item.view360Url,
                                     rawImportData: item.rawImportData,
                                     importBatchId,
                                     // Update legacy fields for backward compatibility
@@ -126,6 +127,7 @@ export async function POST(req: Request) {
                                 computedArea: item.computedArea,
                                 computedBaseCost: item.computedBaseCost,
                                 computedNetTotal: item.computedNetTotal,
+                                view360Url: item.view360Url,
                                 rawImportData: item.rawImportData,
                                 importBatchId,
                                 // Set legacy fields for backward compatibility

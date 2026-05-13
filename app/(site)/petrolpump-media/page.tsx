@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import CartFooter from "@/components/CartFooter"
 import InventoryList from "@/components/InventoryList"
+import { resolveSiteMediaUrl } from "@/lib/site-media"
 
 export default async function PetrolPumpMediaPage() {
     // Fetch Inventory Data - Filtered to AVAILABLE only
@@ -44,15 +45,83 @@ export default async function PetrolPumpMediaPage() {
                 printingCharge: true,
                 installationCharge: true,
                 netTotal: true,
-                availabilityStatus: true
+                availabilityStatus: true,
+                imageUrl: true,
+                view360Url: true,
+                siteMedia: {
+                    where: { isActive: true },
+                    orderBy: [
+                        { type: "asc" },
+                        { sortOrder: "asc" },
+                        { createdAt: "asc" },
+                    ],
+                    select: {
+                        type: true,
+                        key: true,
+                        url: true,
+                    },
+                },
             },
             orderBy: {
                 createdAt: 'desc'
             }
         })
     } catch (error) {
-        dbUnavailable = true
         console.error("Public inventory fetch failed:", error)
+
+        const isSchemaMismatch =
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code?: string }).code === "P2022"
+
+        if (isSchemaMismatch) {
+            try {
+                inventory = await (db.inventoryHoarding.findMany as any)({
+                    where: {
+                        isActive: true,
+                        leadItems: {
+                            none: {
+                                bookingEndDate: {
+                                    not: null,
+                                    gte: today
+                                }
+                            }
+                        }
+                    },
+                    select: {
+                        id: true,
+                        outletName: true,
+                        locationName: true,
+                        state: true,
+                        district: true,
+                        widthFt: true,
+                        heightFt: true,
+                        width: true,
+                        height: true,
+                        ratePerSqft: true,
+                        discountedRate: true,
+                        rate: true,
+                        areaType: true,
+                        totalArea: true,
+                        areaSqft: true,
+                        printingCharge: true,
+                        installationCharge: true,
+                        netTotal: true,
+                        availabilityStatus: true,
+                        imageUrl: true,
+                    },
+                    orderBy: {
+                        createdAt: "desc"
+                    }
+                })
+            } catch (fallbackError) {
+                dbUnavailable = true
+                console.error("Public inventory fallback fetch failed:", fallbackError)
+            }
+        } else {
+            dbUnavailable = true
+        }
     }
 
     // Transform Prisma Decimals to numbers for client component and strip extra fields
@@ -74,7 +143,19 @@ export default async function PetrolPumpMediaPage() {
         areaSqft: item.areaSqft ? Number(item.areaSqft) : null,
         printingCharge: item.printingCharge ? Number(item.printingCharge) : null,
         installationCharge: item.installationCharge ? Number(item.installationCharge) : null,
-        netTotal: item.netTotal ? Number(item.netTotal) : null
+        netTotal: item.netTotal ? Number(item.netTotal) : null,
+        view360Url: item.view360Url || null,
+        imageUrl: item.imageUrl || null,
+        mediaImages: (Array.isArray(item.siteMedia) ? item.siteMedia : [])
+            .filter((media: any) => media.type === "IMAGE")
+            .slice(0, 5)
+            .map((media: any) => resolveSiteMediaUrl(media))
+            .filter((url: string | null): url is string => typeof url === "string" && url.length > 0),
+        mediaVideoUrl: (Array.isArray(item.siteMedia) ? item.siteMedia : [])
+            .filter((media: any) => media.type === "VIDEO")
+            .slice(0, 1)
+            .map((media: any) => resolveSiteMediaUrl(media))
+            .find((url: string | null): url is string => typeof url === "string" && url.length > 0) || null,
     }));
 
     return (

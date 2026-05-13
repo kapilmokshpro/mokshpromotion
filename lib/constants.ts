@@ -45,6 +45,7 @@ export const UserRole = {
     FINANCE: 'FINANCE',
     OPERATIONS: 'OPERATIONS',
     VENDOR: 'VENDOR',
+    SITE_MEDIA: 'SITE_MEDIA',
 } as const;
 
 export type UserRoleType = typeof UserRole[keyof typeof UserRole];

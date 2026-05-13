@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Image as ImageIcon, CheckSquare, Square, Search } from "lucide-react"
+import { Image as ImageIcon, CheckSquare, Square, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { useCart } from "@/context/CartContext"
 import CartFooter from "@/components/CartFooter"
 
@@ -19,6 +19,10 @@ interface Hoarding {
     netTotal: any
     state: string
     city: string
+    imageUrl?: string | null
+    mediaImages?: string[]
+    mediaVideoUrl?: string | null
+    view360Url?: string | null
 }
 
 interface CityHoardingTableProps {
@@ -29,7 +33,13 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
     const { toggleCartItem, isInCart } = useCart()
 
     const [searchQuery, setSearchQuery] = useState("")
-    const [selectedImage, setSelectedImage] = useState<string | null>(null)
+    const [selectedGallery, setSelectedGallery] = useState<{
+        title: string
+        images: string[]
+        currentIndex: number
+        videoUrl?: string | null
+        view360Url?: string | null
+    } | null>(null)
 
     const filteredHoardings = useMemo(() => {
         if (!searchQuery) return hoardings
@@ -136,7 +146,19 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                                             <td className="px-3 py-3 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(hoarding.netTotal)}</td>
                                             <td className="px-3 py-3 text-center">
                                                 <button
-                                                    onClick={() => setSelectedImage("/images/petrol-pump-demo.png")}
+                                                    onClick={() =>
+                                                        setSelectedGallery({
+                                                            title: hoarding.name || "Site View",
+                                                            images: hoarding.mediaImages?.length
+                                                                ? hoarding.mediaImages
+                                                                : hoarding.imageUrl
+                                                                    ? [hoarding.imageUrl]
+                                                                    : ["/images/petrol-pump-demo.png"],
+                                                            currentIndex: 0,
+                                                            videoUrl: hoarding.mediaVideoUrl,
+                                                            view360Url: hoarding.view360Url,
+                                                        })
+                                                    }
                                                     className="text-gray-400 hover:text-blue-600 transition-colors"
                                                     title="View Gallery"
                                                 >
@@ -162,26 +184,93 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
 
                 <CartFooter />
 
-                {selectedImage && (
+                {selectedGallery && (
                     <div
                         className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-                        onClick={() => setSelectedImage(null)}
+                        onClick={() => setSelectedGallery(null)}
                     >
                         <div className="relative max-w-5xl w-full max-h-[90vh] flex items-center justify-center">
                             <button
-                                onClick={() => setSelectedImage(null)}
+                                onClick={() => setSelectedGallery(null)}
                                 className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors"
                             >
                                 <span className="sr-only">Close</span>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                             </button>
 
+                            {selectedGallery.images.length > 1 && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation()
+                                            setSelectedGallery((prev) =>
+                                                prev
+                                                    ? {
+                                                        ...prev,
+                                                        currentIndex: prev.currentIndex === 0 ? prev.images.length - 1 : prev.currentIndex - 1,
+                                                    }
+                                                    : prev
+                                            )
+                                        }}
+                                        className="absolute left-2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+                                    >
+                                        <ChevronLeft className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation()
+                                            setSelectedGallery((prev) =>
+                                                prev
+                                                    ? {
+                                                        ...prev,
+                                                        currentIndex: prev.currentIndex === prev.images.length - 1 ? 0 : prev.currentIndex + 1,
+                                                    }
+                                                    : prev
+                                            )
+                                        }}
+                                        className="absolute right-2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+                                    >
+                                        <ChevronRight className="h-5 w-5" />
+                                    </button>
+                                </>
+                            )}
+
                             <img
-                                src={selectedImage}
-                                alt="Site View"
+                                src={selectedGallery.images[selectedGallery.currentIndex]}
+                                alt={selectedGallery.title}
                                 className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10"
                                 onClick={(e) => e.stopPropagation()}
                             />
+
+                            <div className="absolute left-0 bottom-0 right-0 bg-black/50 text-white px-4 py-3 text-sm flex items-center justify-between gap-3">
+                                <span>{selectedGallery.title}</span>
+                                <div className="flex items-center gap-4">
+                                    {selectedGallery.videoUrl && (
+                                        <a
+                                            href={selectedGallery.videoUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="underline underline-offset-2"
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
+                                            Open video
+                                        </a>
+                                    )}
+                                    {selectedGallery.view360Url && (
+                                        <a
+                                            href={selectedGallery.view360Url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="underline underline-offset-2"
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
+                                            360 view
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

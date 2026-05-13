@@ -280,9 +280,9 @@ export default function InventoryBulkImport() {
 
     const downloadTemplate = () => {
         // Updated template to match user request exactly
-        const template = `Sr no.,Name of the Outlet,Address,District,State,Urban/ Highway/ Rural,Width in ft,Height in ft,Total Area in Sq Ft,Rates,Dscounted Rates,Printinting Charge,Net Total
-1,Sample Outlet 1,Andheri West,Mumbai Suburban,Maharashtra,Urban,20,10,200,150,140,3000,38000
-2,Sample Outlet 2,Bandra East,Mumbai Suburban,Maharashtra,Highway,15,8,120,180,170,2500,28100`;
+        const template = `Sr no.,Name of the Outlet,Address,District,State,Urban/ Highway/ Rural,Width in ft,Height in ft,Total Area in Sq Ft,Rates,Dscounted Rates,Printinting Charge,Net Total,360 View Link
+1,Sample Outlet 1,Andheri West,Mumbai Suburban,Maharashtra,Urban,20,10,200,150,140,3000,38000,https://example.com/site-360-1
+2,Sample Outlet 2,Bandra East,Mumbai Suburban,Maharashtra,Highway,15,8,120,180,170,2500,28100,`;
 
         const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
@@ -361,7 +361,7 @@ export default function InventoryBulkImport() {
                             <AlertDescription>
                                 <strong>Required Headers:</strong> Sr no., Name of the Outlet, Address, District, State,
                                 Urban/ Highway/ Rural, Width in ft, Height in ft, Total Area in Sq Ft,
-                                Rates, Dscounted Rates, Printinting Charge, Net Total
+                                Rates, Dscounted Rates, Printinting Charge, Net Total. Optional: 360 View Link
                             </AlertDescription>
                         </Alert>
                     </CardContent>

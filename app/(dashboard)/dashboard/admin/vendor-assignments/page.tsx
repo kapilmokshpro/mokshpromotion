@@ -18,8 +18,12 @@ export default async function AdminVendorAssignmentsPage() {
         }),
         db.inventoryHoarding.findMany({
             where: { isActive: true },
-            orderBy: { createdAt: "desc" },
-            take: 500,
+            orderBy: [
+                { state: "asc" },
+                { district: "asc" },
+                { outletName: "asc" },
+                { id: "asc" },
+            ],
             select: {
                 id: true,
                 inventoryCode: true,
@@ -73,4 +77,3 @@ export default async function AdminVendorAssignmentsPage() {
         />
     )
 }
-

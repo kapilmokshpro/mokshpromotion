@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
             installationCharge: true,
             printingCharge: true,
             netTotal: true,
+            view360Url: true,
             isActive: true,
             availabilityStatus: true,
             location: true,
@@ -121,6 +122,7 @@ export async function GET(req: NextRequest) {
             discountedRate: Number(item.discountedRate || 0),
             printingCharge: item.printingCharge,
             netTotal: Number(item.netTotal || 0),
+            view360Url: item.view360Url || null,
             isActive: item.isActive,
             availabilityStatus: item.availabilityStatus,
             location: item.outletName || item.locationName || item.name || item.location || '',
@@ -211,6 +213,7 @@ export async function POST(req: Request) {
             const printing = parseFloat(String(getVal(["printintingcharge", "printingcharge", "printing"]) || "0").replace(/[^\d.-]/g, '')) || null;
             const netTotal = parseFloat(String(getVal(["nettotal", "total"]) || "0").replace(/[^\d.-]/g, '')) || null;
             const imageUrl = getVal(["imgurl", "link", "imageurl"]);
+            const view360Url = getVal(["360view", "360viewlink", "360url", "threesixtyview"]);
 
             // 3. UPSERT
             // Check if exists
@@ -234,6 +237,7 @@ export async function POST(req: Request) {
                 printingCharge: printing,
                 netTotal: netTotal,
                 imageUrl: String(imageUrl || ""),
+                view360Url: String(view360Url || ""),
                 isActive: true,
             };
 

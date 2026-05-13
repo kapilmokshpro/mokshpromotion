@@ -32,6 +32,18 @@ enum VendorProofMediaType {
   VIDEO
 }
 
+enum InventorySiteMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum InventorySiteMediaSource {
+  SITE_MEDIA
+  VENDOR_APPROVED
+  ADMIN_IMPORT
+  MANUAL
+}
+
 
 
 model User {
@@ -64,6 +76,8 @@ model User {
   vendorAssignedBy   VendorSiteAssignment[]  @relation("VendorAssignedBy")
   vendorProofs       VendorSiteProof[]       @relation("VendorProofs")
   vendorProofReviews VendorSiteProof[]       @relation("VendorProofApprovals")
+  siteMediaUploads   InventorySiteMedia[]    @relation("InventorySiteMediaUploadedBy")
+  siteMediaReplaced  InventorySiteMedia[]    @relation("InventorySiteMediaReplacedBy")
 }
 
 // ... existing models ...
@@ -329,6 +343,7 @@ model InventoryHoarding {
   inventoryCode       String?
   huid                String?  // Matching spreadsheet "Huid"
   imageUrl            String?  // For image previews
+  view360Url          String?
   isActive            Boolean  @default(true)
 
   // Source tracking
@@ -383,12 +398,41 @@ model InventoryHoarding {
   leadItems           LeadCampaignItem[]
   vendorAssignments   VendorSiteAssignment[]
   vendorProofs        VendorSiteProof[]
+  siteMedia           InventorySiteMedia[]
   
   @@index([state, district, availabilityStatus])
   @@index([outletName])
   @@index([importBatchId])
   @@index([locationName])
   @@index([city])
+}
+
+model InventorySiteMedia {
+  id                  String                   @id @default(cuid())
+  inventoryHoardingId Int
+  inventoryHoarding   InventoryHoarding       @relation(fields: [inventoryHoardingId], references: [id])
+  type                InventorySiteMediaType
+  source              InventorySiteMediaSource @default(SITE_MEDIA)
+  key                 String
+  url                 String?
+  fileName            String
+  mimeType            String
+  size                Int
+  sortOrder           Int                      @default(0)
+  isActive            Boolean                  @default(true)
+  uploadedById        Int?
+  uploadedBy          User?                    @relation("InventorySiteMediaUploadedBy", fields: [uploadedById], references: [id])
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  replacedAt          DateTime?
+  replacedById        Int?
+  replacedBy          User?                    @relation("InventorySiteMediaReplacedBy", fields: [replacedById], references: [id])
+  archivedAt          DateTime?
+
+  @@index([inventoryHoardingId, type, isActive, sortOrder])
+  @@index([inventoryHoardingId, source, isActive])
+  @@index([uploadedById])
+  @@index([replacedById])
 }
 
 model VerificationToken {
@@ -616,4 +660,3 @@ model VendorSiteProofMedia {
 
   @@index([proofId, type])
 }
-

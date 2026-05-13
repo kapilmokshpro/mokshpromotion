@@ -7,6 +7,8 @@ import { getClientSiteLiveEmailTemplate } from "@/lib/email-templates"
 import { sendEmail } from "@/lib/email"
 import { getAppBaseUrl } from "@/lib/runtime-config"
 import { createAuditLog } from "@/lib/audit"
+import { extractSiteMediaKeyFromUrl } from "@/lib/site-media-storage"
+import { InventorySiteMediaType } from "@prisma/client"
 
 export async function POST(
     req: Request,
@@ -38,11 +40,13 @@ export async function POST(
         }
 
         const updated = await db.$transaction(async (tx) => {
+            const now = new Date()
+
             const updatedProof = await tx.vendorSiteProof.update({
                 where: { id: proof.id },
                 data: {
                     status: "APPROVED",
-                    approvedAt: new Date(),
+                    approvedAt: now,
                     approvedById: Number(session.user.id),
                     rejectedAt: null,
                     rejectionReason: null,
@@ -53,6 +57,69 @@ export async function POST(
                 where: { id: proof.assignmentId },
                 data: { status: "APPROVED" }
             })
+
+            const approvedImages = proof.media
+                .filter((media) => media.type === "PHOTO")
+                .slice(0, 5)
+            const approvedVideo = proof.media
+                .filter((media) => media.type === "VIDEO")
+                .slice(0, 1)
+
+            const mappedImages = approvedImages.map((media, index) => ({
+                inventoryHoardingId: proof.inventoryHoardingId,
+                type: InventorySiteMediaType.IMAGE,
+                source: "VENDOR_APPROVED" as const,
+                key: extractSiteMediaKeyFromUrl(media.url) || `legacy/vendor-proof/${media.id}`,
+                url: media.url,
+                fileName: media.fileName,
+                mimeType: media.mimeType,
+                size: media.size,
+                sortOrder: index,
+                isActive: true,
+                uploadedById: proof.vendorId,
+            }))
+
+            const mappedVideo = approvedVideo.map((media, index) => ({
+                inventoryHoardingId: proof.inventoryHoardingId,
+                type: InventorySiteMediaType.VIDEO,
+                source: "VENDOR_APPROVED" as const,
+                key: extractSiteMediaKeyFromUrl(media.url) || `legacy/vendor-proof/${media.id}`,
+                url: media.url,
+                fileName: media.fileName,
+                mimeType: media.mimeType,
+                size: media.size,
+                sortOrder: index,
+                isActive: true,
+                uploadedById: proof.vendorId,
+            }))
+
+            if (mappedImages.length || mappedVideo.length) {
+                await tx.inventorySiteMedia.updateMany({
+                    where: {
+                        inventoryHoardingId: proof.inventoryHoardingId,
+                        isActive: true,
+                    },
+                    data: {
+                        isActive: false,
+                        replacedAt: now,
+                        replacedById: Number(session.user.id),
+                        archivedAt: now,
+                    },
+                })
+
+                await tx.inventorySiteMedia.createMany({
+                    data: [...mappedImages, ...mappedVideo],
+                })
+
+                if (mappedImages.length > 0) {
+                    await tx.inventoryHoarding.update({
+                        where: { id: proof.inventoryHoardingId },
+                        data: {
+                            imageUrl: mappedImages[0].url,
+                        },
+                    })
+                }
+            }
 
             return updatedProof
         })
@@ -127,4 +194,3 @@ export async function POST(
         return new NextResponse("Internal Error", { status: 500 })
     }
 }
-

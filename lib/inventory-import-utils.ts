@@ -22,6 +22,11 @@ export interface ImportRow {
     'Printing Charge'?: string | number;
     'Printinting Charge'?: string | number; // New: Typo support
     'Net Total'?: string | number;
+    '360 View'?: string;
+    '360 View Link'?: string;
+    '360 URL'?: string;
+    'Three Sixty View'?: string;
+    '360View'?: string;
     [key: string]: any; // Allow other fields
 }
 
@@ -43,6 +48,7 @@ export interface ParsedInventoryItem {
     computedArea: number | null;
     computedBaseCost: number | null;
     computedNetTotal: number | null;
+    view360Url: string | null;
     rawImportData: string;
 }
 
@@ -157,6 +163,22 @@ export function parseImportRow(row: ImportRow, rowNumber: number): {
     const errors: string[] = [];
     const warnings: string[] = [];
 
+    const normalizedEntries = Object.entries(row).map(([key, value]) => ({
+        normalizedKey: key.toLowerCase().replace(/[^a-z0-9]/g, ""),
+        value,
+    }))
+
+    const pickStringValue = (keys: string[]) => {
+        for (const key of keys) {
+            const exact = row[key]
+            const raw = exact ?? normalizedEntries.find((entry) => entry.normalizedKey === key.toLowerCase().replace(/[^a-z0-9]/g, ""))?.value
+            if (raw === null || raw === undefined) continue
+            const value = String(raw).trim()
+            if (value) return value
+        }
+        return null
+    }
+
     // Extract and validate required fields
     const outletName = row['Name of the Outlet']?.toString().trim() || '';
 
@@ -202,6 +224,13 @@ export function parseImportRow(row: ImportRow, rowNumber: number): {
     const printingCharge = parseCurrency(row['Printinting Charge']) ?? parseCurrency(row['Printing Charge']);
 
     const providedNetTotal = parseCurrency(row['Net Total']);
+    const view360Url = pickStringValue([
+        "360 View",
+        "360 View Link",
+        "360 URL",
+        "Three Sixty View",
+        "360View",
+    ]);
 
     // Validate area type if provided
     if (row['Urban/ Highway/ Rural'] && !areaType) {
@@ -275,6 +304,7 @@ export function parseImportRow(row: ImportRow, rowNumber: number): {
         computedArea,
         computedBaseCost,
         computedNetTotal,
+        view360Url,
         rawImportData: JSON.stringify(row),
     };
 

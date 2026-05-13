@@ -2,6 +2,7 @@ import { db } from "@/lib/db"
 import CityHoardingTable from "@/components/CityHoardingTable"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import { resolveSiteMediaUrl } from "@/lib/site-media"
 
 type NullableNumberLike = number | string | null | undefined
 
@@ -26,6 +27,13 @@ interface RawCityHoarding {
     printingCharge: NullableNumberLike
     netTotal: NullableNumberLike
     computedNetTotal: NullableNumberLike
+    imageUrl: string | null
+    view360Url: string | null
+    siteMedia: Array<{
+        type: "IMAGE" | "VIDEO"
+        key: string
+        url: string | null
+    }>
 }
 
 const toNumber = (value: NullableNumberLike): number | null => {
@@ -80,12 +88,83 @@ export default async function CityMediaPage({ params }: { params: { city: string
                 printingCharge: true,
                 netTotal: true,
                 computedNetTotal: true,
+                imageUrl: true,
+                view360Url: true,
+                siteMedia: {
+                    where: { isActive: true },
+                    orderBy: [
+                        { type: "asc" },
+                        { sortOrder: "asc" },
+                        { createdAt: "asc" },
+                    ],
+                    select: {
+                        type: true,
+                        key: true,
+                        url: true,
+                    },
+                },
             },
             orderBy: { location: "asc" },
         })) as RawCityHoarding[]
     } catch (error) {
-        dbUnavailable = true
         console.error(`City inventory fetch failed (${cityName}):`, error)
+
+        const isSchemaMismatch =
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            (error as { code?: string }).code === "P2022"
+
+        if (isSchemaMismatch) {
+            try {
+                cityHoardings = (await db.inventoryHoarding.findMany({
+                    where: {
+                        isActive: true,
+                        leadItems: {
+                            none: {
+                                bookingEndDate: {
+                                    not: null,
+                                    gte: today,
+                                },
+                            },
+                        },
+                        OR: [
+                            { district: { equals: cityName, mode: "insensitive" } },
+                            { city: { equals: cityName, mode: "insensitive" } },
+                        ],
+                    },
+                    select: {
+                        id: true,
+                        outletName: true,
+                        name: true,
+                        locationName: true,
+                        location: true,
+                        state: true,
+                        district: true,
+                        city: true,
+                        hoardingsCount: true,
+                        width: true,
+                        widthFt: true,
+                        height: true,
+                        heightFt: true,
+                        totalArea: true,
+                        areaSqft: true,
+                        rate: true,
+                        ratePerSqft: true,
+                        printingCharge: true,
+                        netTotal: true,
+                        computedNetTotal: true,
+                        imageUrl: true,
+                    },
+                    orderBy: { location: "asc" },
+                })) as RawCityHoarding[]
+            } catch (fallbackError) {
+                dbUnavailable = true
+                console.error(`City inventory fallback fetch failed (${cityName}):`, fallbackError)
+            }
+        } else {
+            dbUnavailable = true
+        }
     }
 
     if (dbUnavailable) {
@@ -142,6 +221,18 @@ export default async function CityMediaPage({ params }: { params: { city: string
             printingCharge: toNumber(row.printingCharge),
             netTotal: toNumber(row.netTotal),
             computedNetTotal: toNumber(row.computedNetTotal),
+            view360Url: row.view360Url || null,
+            imageUrl: row.imageUrl || null,
+            mediaImages: (Array.isArray(row.siteMedia) ? row.siteMedia : [])
+                .filter((media) => media.type === "IMAGE")
+                .slice(0, 5)
+                .map((media) => resolveSiteMediaUrl(media))
+                .filter((url): url is string => typeof url === "string" && url.length > 0),
+            mediaVideoUrl: (Array.isArray(row.siteMedia) ? row.siteMedia : [])
+                .filter((media) => media.type === "VIDEO")
+                .slice(0, 1)
+                .map((media) => resolveSiteMediaUrl(media))
+                .find((url): url is string => typeof url === "string" && url.length > 0) || null,
         }
     })
 

@@ -97,6 +97,9 @@ function LoginForm() {
                     case "VENDOR":
                         targetUrl = "/dashboard/vendor"
                         break
+                    case "SITE_MEDIA":
+                        targetUrl = "/dashboard/site-media"
+                        break
                     default:
                         targetUrl = "/dashboard/sales"
                 }

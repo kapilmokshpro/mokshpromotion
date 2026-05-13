@@ -23,6 +23,8 @@ export default async function DashboardPage() {
         redirect("/dashboard/operations")
     } else if (role === "VENDOR") {
         redirect("/dashboard/vendor")
+    } else if (role === "SITE_MEDIA") {
+        redirect("/dashboard/site-media")
     } else {
         redirect("/dashboard/sales")
     }

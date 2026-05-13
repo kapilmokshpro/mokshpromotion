@@ -95,8 +95,11 @@ export default function ClientsSection() {
                     {/* Viewport */}
                     <div className="overflow-hidden">
                         <div
-                            className="flex transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)]"
-                            style={{ transform: `translateX(${translateX}%)` }}
+                            className="flex transition-transform duration-700"
+                            style={{
+                                transform: `translateX(${translateX}%)`,
+                                transitionTimingFunction: "cubic-bezier(0.25,1,0.5,1)",
+                            }}
                         >
                             {clients.map((client, idx) => {
                                 // Calculate if this specific card is currently the "center" card.
@@ -130,6 +133,7 @@ export default function ClientsSection() {
                                                     src={client.logo}
                                                     alt={client.name}
                                                     fill
+                                                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 33vw, 20vw"
                                                     className="object-contain"
                                                 />
                                             </div>

@@ -28,7 +28,7 @@ const createUserWithRecovery = async (data: {
     name: string
     email: string
     password: string
-    role: "ADMIN" | "SALES" | "FINANCE" | "OPERATIONS" | "VENDOR"
+    role: "ADMIN" | "SALES" | "FINANCE" | "OPERATIONS" | "VENDOR" | "SITE_MEDIA"
 }) => {
     try {
         return await db.user.create({ data })

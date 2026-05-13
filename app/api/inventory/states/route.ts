@@ -5,21 +5,26 @@ import { unstable_cache } from 'next/cache'
 // Cache the states query for 5 minutes
 const getCachedStates = unstable_cache(
     async () => {
-        const states = await (db.inventoryHoarding.findMany as any)({
-            where: {
-                availabilityStatus: 'AVAILABLE',
-                isActive: true
-            },
-            select: {
-                state: true
-            },
-            distinct: ['state']
-        })
+        try {
+            const states = await (db.inventoryHoarding.findMany as any)({
+                where: {
+                    availabilityStatus: 'AVAILABLE',
+                    isActive: true
+                },
+                select: {
+                    state: true
+                },
+                distinct: ['state']
+            })
 
-        return states
-            .map((s: any) => s.state)
-            .filter(Boolean)
-            .sort()
+            return states
+                .map((s: any) => s.state)
+                .filter(Boolean)
+                .sort()
+        } catch (error) {
+            console.error("INVENTORY_STATES_CACHE_QUERY", error)
+            return []
+        }
     },
     ['inventory-states'],
     {
