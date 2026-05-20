@@ -1,5 +1,4 @@
 import { db } from "@/lib/db"
-import { serializeDecimal } from "@/lib/utils"
 
 export const dynamic = 'force-dynamic'
 import InventoryUploader from "@/components/dashboard/InventoryUploader"
@@ -23,6 +22,20 @@ export default async function InventoryPage() {
         orderBy: { createdAt: 'desc' }
     })
 
+    const serializedInventory = inventory.map(item => ({
+        id: item.id,
+        inventoryCode: item.inventoryCode || "",
+        outletName: item.outletName,
+        locationName: item.locationName,
+        state: item.state,
+        district: item.district,
+        isActive: item.isActive,
+        discountedRate: item.discountedRate ? Number(item.discountedRate) : 0,
+        netTotal: item.netTotal ? Number(item.netTotal) : 0,
+        availabilityStatus: item.availabilityStatus,
+        createdAt: item.createdAt.toISOString()
+    }))
+
     return (
         <div className="space-y-6 animate-fade-in-up">
             <div className="flex items-center justify-between">
@@ -33,7 +46,7 @@ export default async function InventoryPage() {
             <InventoryUploader />
 
             {/* Interactive Inventory Table */}
-            <InventoryTable initialData={serializeDecimal(inventory) as any} />
+            <InventoryTable initialData={serializedInventory as any} />
         </div>
     )
 }

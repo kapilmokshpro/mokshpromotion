@@ -43,13 +43,28 @@ interface InventoryListProps {
 
 type ViewState = "STATES" | "DISTRICTS" | "ITEMS";
 
+function toTitleCase(str: string) {
+    if (!str) return "";
+    return str
+        .toLowerCase()
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}
+
 export default function InventoryList({ inventory }: InventoryListProps) {
-    const { toggleCartItem, isInCart } = useCart();
+    const { toggleCartItem, isInCart, addToCart, removeFromCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const availableInventory = useMemo(() => inventory, [inventory]);
+    const availableInventory = useMemo(() => {
+        return inventory.map((item) => ({
+            ...item,
+            state: item.state ? toTitleCase(item.state.trim()) : "",
+            district: item.district ? toTitleCase(item.district.trim()) : ""
+        }));
+    }, [inventory]);
 
     const [viewState, setViewState] = useState<ViewState>("STATES");
     const [selectedState, setSelectedState] = useState<string | null>(null);
@@ -164,6 +179,54 @@ export default function InventoryList({ inventory }: InventoryListProps) {
         city: item.district,
     });
 
+    const handleToggleState = (stateName: string, event: React.MouseEvent) => {
+        event.stopPropagation();
+        const stateItems = availableInventory.filter(
+            (item) => item.state === stateName && item.availabilityStatus !== "BOOKED"
+        );
+        if (stateItems.length === 0) return;
+
+        const allSelected = stateItems.every((item) => isInCart(item.id));
+
+        if (allSelected) {
+            stateItems.forEach((item) => {
+                if (isInCart(item.id)) {
+                    removeFromCart(item.id);
+                }
+            });
+        } else {
+            stateItems.forEach((item) => {
+                if (!isInCart(item.id)) {
+                    addToCart(getCartItem(item));
+                }
+            });
+        }
+    };
+
+    const handleToggleDistrict = (districtName: string, event: React.MouseEvent) => {
+        event.stopPropagation();
+        const districtItems = availableInventory.filter(
+            (item) => item.state === selectedState && item.district === districtName && item.availabilityStatus !== "BOOKED"
+        );
+        if (districtItems.length === 0) return;
+
+        const allSelected = districtItems.every((item) => isInCart(item.id));
+
+        if (allSelected) {
+            districtItems.forEach((item) => {
+                if (isInCart(item.id)) {
+                    removeFromCart(item.id);
+                }
+            });
+        } else {
+            districtItems.forEach((item) => {
+                if (!isInCart(item.id)) {
+                    addToCart(getCartItem(item));
+                }
+            });
+        }
+    };
+
     const handleRowClick = (item: InventoryItem, event: React.MouseEvent) => {
         if ((event.target as HTMLElement).closest(".no-modal-trigger")) return;
         setCurrentImageIndex(0);
@@ -232,19 +295,55 @@ export default function InventoryList({ inventory }: InventoryListProps) {
 
             {viewState === "STATES" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {filteredStates.map((state) => (
-                        <Card key={state} onClick={() => handleStateSelect(state)} className="cursor-pointer hover:shadow-lg transition-all group bg-white">
-                            <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-[#002147] transition-colors">
-                                    <Map className="w-8 h-8 text-[#002147] group-hover:text-white" />
-                                </div>
-                                <div className="space-y-1">
-                                    <h3 className="font-bold text-lg text-gray-900">{state}</h3>
-                                    <p className="text-sm text-gray-500">{getStateCount(state)} Outlets</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                    {filteredStates.map((state) => {
+                        const stateItems = availableInventory.filter(
+                            (item) => item.state === state && item.availabilityStatus !== "BOOKED"
+                        );
+                        const isAllSelected = stateItems.length > 0 && stateItems.every((item) => isInCart(item.id));
+                        const isPartiallySelected = !isAllSelected && stateItems.some((item) => isInCart(item.id));
+
+                        return (
+                            <Card 
+                                key={state} 
+                                onClick={() => handleStateSelect(state)} 
+                                className="cursor-pointer hover:shadow-lg transition-all group bg-white relative overflow-hidden"
+                            >
+                                {stateItems.length > 0 && (
+                                    <div 
+                                        className="absolute top-3 right-3 z-10 no-modal-trigger"
+                                        onClick={(e) => handleToggleState(state, e)}
+                                    >
+                                        <div className={cn(
+                                            "w-5 h-5 rounded border flex items-center justify-center transition-all bg-white",
+                                            isAllSelected 
+                                                ? "bg-[#002147] border-[#002147] text-white" 
+                                                : isPartiallySelected 
+                                                    ? "bg-[#002147]/10 border-[#002147] text-[#002147]"
+                                                    : "border-gray-200 hover:border-gray-300"
+                                        )}>
+                                            {isAllSelected && (
+                                                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                                                    <path d="M0 11l2-2 5 5L18 3l2 2L7 18z"/>
+                                                </svg>
+                                            )}
+                                            {isPartiallySelected && (
+                                                <div className="w-2 h-0.5 bg-[#002147]" />
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+                                    <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-[#002147] transition-colors">
+                                        <Map className="w-8 h-8 text-[#002147] group-hover:text-white" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h3 className="font-bold text-lg text-gray-900">{state}</h3>
+                                        <p className="text-sm text-gray-500">{getStateCount(state)} Outlets</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                     {filteredStates.length === 0 && (
                         <div className="col-span-full rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center text-sm text-gray-500">
                             No states found for "{searchQuery}".
@@ -257,19 +356,55 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                 <div>
                     <h2 className="text-2xl font-bold text-[#002147] mb-6">Districts in {selectedState}</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {filteredDistricts.map((district) => (
-                            <Card key={district} onClick={() => handleDistrictSelect(district)} className="cursor-pointer hover:shadow-lg transition-all group bg-white">
-                                <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:bg-[#FF6B00] transition-colors">
-                                        <Building2 className="w-6 h-6 text-[#FF6B00] group-hover:text-white" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h3 className="font-bold text-lg text-gray-900">{district}</h3>
-                                        <p className="text-sm text-gray-500">{getDistrictCount(selectedState!, district)} Outlets</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        {filteredDistricts.map((district) => {
+                            const districtItems = availableInventory.filter(
+                                (item) => item.state === selectedState && item.district === district && item.availabilityStatus !== "BOOKED"
+                            );
+                            const isAllSelected = districtItems.length > 0 && districtItems.every((item) => isInCart(item.id));
+                            const isPartiallySelected = !isAllSelected && districtItems.some((item) => isInCart(item.id));
+
+                            return (
+                                <Card 
+                                    key={district} 
+                                    onClick={() => handleDistrictSelect(district)} 
+                                    className="cursor-pointer hover:shadow-lg transition-all group bg-white relative overflow-hidden"
+                                >
+                                    {districtItems.length > 0 && (
+                                        <div 
+                                            className="absolute top-3 right-3 z-10 no-modal-trigger"
+                                            onClick={(e) => handleToggleDistrict(district, e)}
+                                        >
+                                            <div className={cn(
+                                                "w-5 h-5 rounded border flex items-center justify-center transition-all bg-white",
+                                                isAllSelected 
+                                                    ? "bg-[#FF6B00] border-[#FF6B00] text-white" 
+                                                    : isPartiallySelected 
+                                                        ? "bg-[#FF6B00]/10 border-[#FF6B00] text-[#FF6B00]"
+                                                        : "border-gray-200 hover:border-gray-300"
+                                            )}>
+                                                {isAllSelected && (
+                                                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                                                        <path d="M0 11l2-2 5 5L18 3l2 2L7 18z"/>
+                                                    </svg>
+                                                )}
+                                                {isPartiallySelected && (
+                                                    <div className="w-2 h-0.5 bg-[#FF6B00]" />
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+                                        <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:bg-[#FF6B00] transition-colors">
+                                            <Building2 className="w-6 h-6 text-[#FF6B00] group-hover:text-white" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h3 className="font-bold text-lg text-gray-900">{district}</h3>
+                                            <p className="text-sm text-gray-500">{getDistrictCount(selectedState!, district)} Outlets</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
                         {filteredDistricts.length === 0 && (
                             <div className="col-span-full rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center text-sm text-gray-500">
                                 No districts found for "{searchQuery}".
@@ -294,7 +429,34 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                         <table className="min-w-full text-sm text-left">
                             <thead className="bg-[#002147] text-white uppercase font-bold text-xs">
                                 <tr>
-                                    <th className="px-6 py-4 w-12 text-center">Select</th>
+                                    <th className="px-6 py-4 w-12 text-center no-modal-trigger">
+                                        <Checkbox 
+                                            checked={
+                                                filteredInventory.length > 0 && 
+                                                filteredInventory
+                                                    .filter(item => item.availabilityStatus !== "BOOKED")
+                                                    .every(item => isInCart(item.id))
+                                            }
+                                            onCheckedChange={(checked) => {
+                                                const selectables = filteredInventory.filter(
+                                                    (item) => item.availabilityStatus !== "BOOKED"
+                                                );
+                                                if (checked) {
+                                                    selectables.forEach((item) => {
+                                                        if (!isInCart(item.id)) {
+                                                            toggleCartItem(getCartItem(item));
+                                                        }
+                                                    });
+                                                } else {
+                                                    selectables.forEach((item) => {
+                                                        if (isInCart(item.id)) {
+                                                            toggleCartItem(getCartItem(item));
+                                                        }
+                                                    });
+                                                }
+                                            }}
+                                        />
+                                    </th>
                                     <th className="px-6 py-4">Outlet Name</th>
                                     <th className="px-6 py-4">Location</th>
                                     <th className="px-6 py-4">State / District</th>

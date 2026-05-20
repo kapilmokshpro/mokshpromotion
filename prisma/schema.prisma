@@ -587,6 +587,7 @@ model VendorProfile {
   user        User     @relation("VendorUserProfile", fields: [userId], references: [id])
   companyName String?
   phone       String?
+  city        String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

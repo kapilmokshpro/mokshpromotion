@@ -185,7 +185,7 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
             {/* Sidebar Container */}
             <aside
                 className={cn(
-                    "fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-100 z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static flex flex-col shadow-xl lg:shadow-none",
+                    "fixed top-0 left-0 bottom-0 w-64 bg-white border-r border-gray-100 z-50 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen flex flex-col shadow-xl lg:shadow-none",
                     isOpen ? "translate-x-0" : "-translate-x-full"
                 )}
             >

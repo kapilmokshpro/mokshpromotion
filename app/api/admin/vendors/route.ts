@@ -51,7 +51,7 @@ export async function POST(req: Request) {
             return new NextResponse(parsed.error.issues[0]?.message || "Invalid request", { status: 400 })
         }
 
-        const { name, email, phone, companyName, isActive } = parsed.data
+        const { name, email, phone, companyName, city, isActive } = parsed.data
         const normalizedEmail = email.trim().toLowerCase()
 
         const existing = await db.user.findUnique({
@@ -81,6 +81,7 @@ export async function POST(req: Request) {
                     userId: user.id,
                     companyName: companyName || null,
                     phone: phone || null,
+                    city: city || null,
                     isActive: isActive ?? true,
                 }
             })

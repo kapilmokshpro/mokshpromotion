@@ -47,6 +47,10 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
     const [districtFilter, setDistrictFilter] = useState("ALL")
     const [statusFilter, setStatusFilter] = useState("ALL") // ACTIVE, ARCHIVED
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1)
+    const itemsPerPage = 50
+
     // Editing State
     const [editingId, setEditingId] = useState<number | null>(null)
     const [editValues, setEditValues] = useState<{ discountedRate?: number, netTotal?: number }>({})
@@ -60,6 +64,8 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
     }, [initialData, stateFilter])
 
     const filteredData = useMemo(() => {
+        // Reset to page 1 when filters change
+        setCurrentPage(1)
         return initialData.filter(item => {
             const matchesSearch =
                 item.outletName.toLowerCase().includes(search.toLowerCase()) ||
@@ -77,6 +83,13 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
             return matchesSearch && matchesState && matchesDistrict && matchesStatus
         })
     }, [initialData, search, stateFilter, districtFilter, statusFilter])
+
+    const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1
+
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage
+        return filteredData.slice(startIndex, startIndex + itemsPerPage)
+    }, [filteredData, currentPage])
 
     const handleEditStart = (item: InventoryItem) => {
         setEditingId(item.id)
@@ -178,14 +191,14 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredData.length === 0 ? (
+                        {paginatedData.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={8} className="text-center h-24 text-gray-500">
                                     No items found.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filteredData.map((item) => (
+                            paginatedData.map((item) => (
                                 <TableRow key={item.id} className={!item.isActive ? "bg-gray-50 opacity-75" : ""}>
                                     <TableCell>
                                         <div className="relative h-10 w-10 rounded border overflow-hidden bg-gray-50">
@@ -276,8 +289,63 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                     </TableBody>
                 </Table>
             </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-lg shadow-sm border">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                        <Button
+                            variant="outline"
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                        >
+                            Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm text-gray-700">
+                                Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                                <span className="font-medium">
+                                    {Math.min(currentPage * itemsPerPage, filteredData.length)}
+                                </span>{" "}
+                                of <span className="font-medium">{filteredData.length}</span> results
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                            >
+                                Previous
+                            </Button>
+                            <span className="flex items-center text-sm font-medium px-4 text-gray-700">
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="text-xs text-gray-400 text-center">
-                Showing {filteredData.length} of {initialData.length} items
+                Showing {Math.min(filteredData.length, itemsPerPage)} of {filteredData.length} filtered items (Total: {initialData.length})
             </div>
         </div>
     )

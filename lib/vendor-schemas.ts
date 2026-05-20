@@ -5,6 +5,7 @@ export const createVendorSchema = z.object({
     email: z.string().trim().toLowerCase().email("Valid email is required"),
     phone: z.string().trim().optional().or(z.literal("")),
     companyName: z.string().trim().optional().or(z.literal("")),
+    city: z.string().trim().optional().or(z.literal("")),
     isActive: z.boolean().optional().default(true),
 })
 
