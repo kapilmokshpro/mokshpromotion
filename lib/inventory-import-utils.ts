@@ -179,17 +179,38 @@ export function parseImportRow(row: ImportRow, rowNumber: number): {
         return null
     }
 
-    // Extract and validate required fields
-    const outletName = row['Name of the Outlet']?.toString().trim() || '';
+    // Extract and validate required fields using flexible key picking
+    const locationName = pickStringValue(['Address', 'Location', 'Location Name']) || '';
 
-    // Support 'Address' (new) or 'Location' (old)
-    const locationName = row['Address']?.toString().trim() || row['Location']?.toString().trim() || '';
+    let outletName = pickStringValue([
+        'Name of the Outlet',
+        'Outlet Name',
+        'Retail Outlet Name',
+        'RO Name',
+        'Dealer Name',
+        'Name of RO',
+        'Name of Dealer',
+        'Name',
+        'Outlet',
+        'Site Name',
+        'Dealer'
+    ]) || '';
 
-    const state = row['State']?.toString().trim() || '';
-    const district = row['District']?.toString().trim() || '';
+    // If outletName is missing, try to infer it from locationName (address)
+    if (!outletName && locationName) {
+        const parts = locationName.split(/[,\n]/).map(p => p.trim()).filter(Boolean);
+        let candidate = parts[0] || '';
+        if (candidate.length < 5 && parts.length > 1) {
+            candidate = (parts[0] + ', ' + parts[1]).trim();
+        }
+        outletName = candidate.slice(0, 100);
+    }
+
+    const state = pickStringValue(['State']) || '';
+    const district = pickStringValue(['District']) || '';
 
     // Validate Inventory Code (Strict)
-    const inventoryCode = row['Inventory Code']?.toString().trim() || row['Code']?.toString().trim();
+    const inventoryCode = pickStringValue(['Inventory Code', 'Code', 'InventoryCode']);
     if (!inventoryCode) {
         errors.push("Inventory Code is MISSING. It is mandatory.");
     }

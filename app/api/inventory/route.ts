@@ -192,8 +192,37 @@ export async function POST(req: Request) {
 
             const huid = getVal(["huid", "inventorycode", "uniqueid"]);
             const srNo = parseInt(String(getVal(["srno"]) || "0")) || null;
-            const outletName = getVal(["nameoftheoutlet", "outletname", "name", "location"]) || "Unknown Outlet";
-            const locationName = getVal(["address", "location", "locationname"]) || "";
+            const locationName = String(getVal(["address", "location", "locationname"]) || "");
+            
+            const rawOutletName = getVal([
+                "nameoftheoutlet",
+                "outletname",
+                "retailoutletname",
+                "roname",
+                "dealername",
+                "nameofro",
+                "nameofdealer",
+                "name",
+                "location",
+                "outlet",
+                "sitename",
+                "dealer"
+            ]);
+            
+            let outletName = rawOutletName;
+            if (!outletName) {
+                if (locationName) {
+                    const parts = locationName.split(/[,\n]/).map((p: string) => p.trim()).filter(Boolean);
+                    let candidate = parts[0] || '';
+                    if (candidate.length < 5 && parts.length > 1) {
+                        candidate = (parts[0] + ', ' + parts[1]).trim();
+                    }
+                    outletName = candidate.slice(0, 100);
+                } else {
+                    outletName = "Unknown Outlet";
+                }
+            }
+
             const state = getVal(["state"]) || "";
             const district = getVal(["district"]) || "";
             const areaType = getVal(["urbanhighwayrural", "areatype", "urbanrural"]);
