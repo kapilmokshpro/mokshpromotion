@@ -597,23 +597,17 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                     const view360Url = selectedItem?.view360Url?.trim();
                                     const isValidUrl = !!(view360Url && (view360Url.startsWith("http://") || view360Url.startsWith("https://")));
                                     
-                                    const mapsUrl = (isValidUrl && view360Url)
-                                        ? view360Url 
-                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                                            [selectedItem?.outletName, selectedItem?.locationName, selectedItem?.district, selectedItem?.state]
-                                                .filter(Boolean)
-                                                .join(", ")
-                                          )}`;
+                                    if (!isValidUrl) return null;
                                     
                                     return (
                                         <a
-                                            href={mapsUrl}
+                                            href={view360Url}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg bg-gradient-to-r from-[#002147] to-[#003366] text-white font-semibold text-sm hover:from-[#003366] hover:to-[#004488] transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
                                         >
-                                            {isValidUrl ? <Globe className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
-                                            {isValidUrl ? "Open 360° View" : "View Location on Google Maps"}
+                                            <Globe className="w-5 h-5" />
+                                            Open 360° View
                                             <span className="text-white/60 text-xs">↗</span>
                                         </a>
                                     );

@@ -7,7 +7,7 @@ import { createVendorSchema } from "@/lib/vendor-schemas"
 import { createVendorInvite } from "@/lib/vendor-invite"
 import { getAppBaseUrl } from "@/lib/runtime-config"
 import { sendEmail } from "@/lib/email"
-import { getVendorInviteEmailTemplate } from "@/lib/email-templates"
+import { getVendorInviteEmailTemplate, getVendorWelcomeEmailTemplate } from "@/lib/email-templates"
 import { createAuditLog } from "@/lib/audit"
 
 export async function GET() {
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
             return new NextResponse(parsed.error.issues[0]?.message || "Invalid request", { status: 400 })
         }
 
-        const { name, email, phone, companyName, city, isActive } = parsed.data
+        const { name, email, phone, companyName, city, isActive, password } = parsed.data
         const normalizedEmail = email.trim().toLowerCase()
 
         const existing = await db.user.findUnique({
@@ -62,7 +62,9 @@ export async function POST(req: Request) {
             return new NextResponse("User with this email already exists", { status: 409 })
         }
 
-        const temporaryPassword = crypto.randomBytes(24).toString("hex")
+        const temporaryPassword = (password && password.trim().length >= 6)
+            ? password.trim()
+            : crypto.randomBytes(24).toString("hex")
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10)
 
         const created = await db.$transaction(async (tx) => {
@@ -89,24 +91,43 @@ export async function POST(req: Request) {
             return { user, profile }
         })
 
-        const invite = await createVendorInvite({
-            userId: created.user.id,
-            email: created.user.email
-        })
+        let emailResult;
+        let inviteSent = false;
+        const baseUrl = getAppBaseUrl(req);
+        const isManualPassword = !!(password && password.trim().length >= 6);
 
-        const baseUrl = getAppBaseUrl(req)
-        const setupLink = `${baseUrl}/setup-vendor-password?vendorId=${created.user.id}&email=${encodeURIComponent(created.user.email)}&token=${invite.token}`
-        const { subject, html } = getVendorInviteEmailTemplate({
-            vendorName: created.user.name,
-            companyName: created.profile.companyName,
-            setupLink,
-            expiresAt: invite.expiresAt,
-        })
-        const emailResult = await sendEmail({
-            to: created.user.email,
-            subject,
-            html,
-        })
+        if (isManualPassword) {
+            const loginLink = `${baseUrl}/login`;
+            const { subject, html } = getVendorWelcomeEmailTemplate({
+                vendorName: created.user.name,
+                companyName: created.profile.companyName,
+                loginLink,
+            });
+            emailResult = await sendEmail({
+                to: created.user.email,
+                subject,
+                html,
+            });
+            inviteSent = emailResult.success;
+        } else {
+            const invite = await createVendorInvite({
+                userId: created.user.id,
+                email: created.user.email
+            });
+            const setupLink = `${baseUrl}/setup-vendor-password?vendorId=${created.user.id}&email=${encodeURIComponent(created.user.email)}&token=${invite.token}`;
+            const { subject, html } = getVendorInviteEmailTemplate({
+                vendorName: created.user.name,
+                companyName: created.profile.companyName,
+                setupLink,
+                expiresAt: invite.expiresAt,
+            });
+            emailResult = await sendEmail({
+                to: created.user.email,
+                subject,
+                html,
+            });
+            inviteSent = emailResult.success;
+        }
 
         await createAuditLog(
             Number(session.user.id),
@@ -116,10 +137,11 @@ export async function POST(req: Request) {
             {
                 vendorEmail: created.user.email,
                 companyName: created.profile.companyName,
-                inviteSent: emailResult.success,
-                simulated: (emailResult as { simulated?: boolean }).simulated === true
+                inviteSent: inviteSent,
+                simulated: (emailResult as { simulated?: boolean }).simulated === true,
+                manualPasswordSet: isManualPassword
             }
-        )
+        );
 
         return NextResponse.json({
             success: true,
@@ -132,10 +154,10 @@ export async function POST(req: Request) {
                 vendorProfile: created.profile,
             },
             invite: {
-                sent: emailResult.success,
+                sent: inviteSent,
                 simulated: (emailResult as { simulated?: boolean }).simulated === true
             }
-        })
+        });
     } catch (error) {
         console.error("ADMIN_VENDORS_POST", error)
         return new NextResponse("Internal Error", { status: 500 })

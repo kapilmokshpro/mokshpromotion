@@ -668,6 +668,43 @@ export function getVendorInviteEmailTemplate(data: {
   return { subject, html };
 }
 
+export function getVendorWelcomeEmailTemplate(data: {
+  vendorName: string;
+  companyName?: string | null;
+  loginLink: string;
+}) {
+  const subject = "Welcome to Moksh Promotion - Vendor Access Details";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendor Welcome</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 640px; margin: 0 auto; padding: 20px;">
+  <div style="background: #0f172a; color: #ffffff; padding: 24px; border-radius: 10px 10px 0 0;">
+    <h1 style="margin: 0; font-size: 22px;">Vendor Account Created</h1>
+  </div>
+  <div style="border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px; padding: 24px;">
+    <p>Hello ${data.vendorName},</p>
+    <p>You have been added as a vendor${data.companyName ? ` for <strong>${data.companyName}</strong>` : ""} on Moksh Promotion.</p>
+    <p>Your account has been set up with login credentials. You can log in directly using the link below with the password provided by your administrator.</p>
+    <p style="margin: 24px 0;">
+      <a href="${data.loginLink}" style="background: #1d4ed8; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px; display: inline-block; font-weight: 600;">
+        Log In to Dashboard
+      </a>
+    </p>
+  </div>
+</body>
+</html>
+  `;
+
+  return { subject, html };
+}
+
+
 export function getVendorAssignmentEmailTemplate(data: {
   vendorName: string;
   siteName: string;

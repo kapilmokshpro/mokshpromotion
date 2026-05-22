@@ -7,6 +7,7 @@ export const createVendorSchema = z.object({
     companyName: z.string().trim().optional().or(z.literal("")),
     city: z.string().trim().optional().or(z.literal("")),
     isActive: z.boolean().optional().default(true),
+    password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal("")),
 })
 
 export const createVendorAssignmentSchema = z.object({
