@@ -7,29 +7,33 @@ import NewProjectModal from "@/components/dashboard/NewProjectModal"
 export default async function ProjectsPage() {
     const session = await getServerSession(authOptions)
 
-    // 1. Fetch Projects with expanded relations for status/assignee
-    const projectsData = await db.project.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: {
-            customer: true,
-            salesUser: true,
-            invoices: true,
-        }
-    })
-
-    // 2. Fetch Leads that are treated as active projects
-    const leadsData = await db.lead.findMany({
-        where: {
-            status: {
-                in: ['FOLLOW_UP', 'INTERESTED', 'IN_PROGRESS', 'PROCESSING']
+    // Fetch Projects, active Leads, and Customers concurrently
+    const [projectsData, leadsData, customers] = await Promise.all([
+        db.project.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                customer: true,
+                salesUser: true,
+                invoices: true,
             }
-        },
-        orderBy: { createdAt: 'desc' },
-        include: {
-            assignee: true,
-            salesUser: true
-        }
-    })
+        }),
+        db.lead.findMany({
+            where: {
+                status: {
+                    in: ['FOLLOW_UP', 'INTERESTED', 'IN_PROGRESS', 'PROCESSING']
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                assignee: true,
+                salesUser: true
+            }
+        }),
+        db.customer.findMany({
+            select: { id: true, name: true, company: true },
+            orderBy: { name: 'asc' }
+        })
+    ])
 
     // 3. Transform to unified shape
     const unifiedProjects = [
@@ -75,10 +79,7 @@ export default async function ProjectsPage() {
         }))
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-    const customers = await db.customer.findMany({
-        select: { id: true, name: true, company: true },
-        orderBy: { name: 'asc' }
-    })
+
 
     return (
         <div className="space-y-6">

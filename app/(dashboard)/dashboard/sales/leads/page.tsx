@@ -35,26 +35,27 @@ export default async function LeadsPage() {
         whereClause = { assigneeId: Number(session.user.id) }
     }
 
-    const leads = await db.lead.findMany({
-        where: whereClause,
-        orderBy: { createdAt: 'desc' },
-        include: {
-            assignee: { select: { name: true } },
-            salesUser: { select: { name: true } },
-            financeUser: { select: { name: true } },
-            opsUser: { select: { name: true } },
-            logs: {
-                orderBy: { createdAt: 'desc' },
-                include: { user: { select: { name: true, role: true } } }
+    const [leads, users] = await Promise.all([
+        db.lead.findMany({
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                assignee: { select: { name: true } },
+                salesUser: { select: { name: true } },
+                financeUser: { select: { name: true } },
+                opsUser: { select: { name: true } },
+                logs: {
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: { select: { name: true, role: true } } }
+                }
             }
-        }
-    })
-
-    // Fetch users for assignment dropdown (Admin only needs this effectively, but we pass to all for simplicity)
-    const users = await db.user.findMany({
-        select: { id: true, name: true, role: true },
-        orderBy: { name: 'asc' }
-    })
+        }),
+        // Fetch users for assignment dropdown (Admin only needs this effectively, but we pass to all for simplicity)
+        db.user.findMany({
+            select: { id: true, name: true, role: true },
+            orderBy: { name: 'asc' }
+        })
+    ])
 
     return (
         <div className="space-y-6">

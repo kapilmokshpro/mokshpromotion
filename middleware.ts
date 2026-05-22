@@ -7,6 +7,11 @@ export default withAuth(
         const path = req.nextUrl.pathname
         const role = token?.role as string | undefined
 
+        // Super Admin bypasses all middleware redirects as they have full access
+        if (role === "SUPER_ADMIN") {
+            return
+        }
+
         if (role === "SITE_MEDIA" && path !== "/dashboard" && !path.startsWith("/dashboard/site-media")) {
             return NextResponse.redirect(new URL("/dashboard/site-media", req.url))
         }

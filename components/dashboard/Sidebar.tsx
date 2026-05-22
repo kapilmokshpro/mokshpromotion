@@ -33,17 +33,20 @@ interface SidebarProps {
 export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
     const pathname = usePathname()
 
+    const overviewHref = role === "SUPER_ADMIN" ? "/dashboard/super-admin" :
+                         role === "ADMIN" ? "/dashboard/admin" :
+                         role === "SALES" ? "/dashboard/sales" :
+                         role === "FINANCE" ? "/dashboard/finance" :
+                         role === "OPERATIONS" ? "/dashboard/operations" :
+                         role === "VENDOR" ? "/dashboard/vendor" :
+                         role === "SITE_MEDIA" ? "/dashboard/site-media" : "/dashboard"
+
     const routes = [
         {
             label: "Overview",
-            href: "/dashboard",
+            href: overviewHref,
             icon: LayoutDashboard,
-            active: pathname === "/dashboard" ||
-                pathname === "/dashboard/admin" ||
-                pathname === "/dashboard/finance" ||
-                pathname === "/dashboard/operations" ||
-                pathname === "/dashboard/vendor" ||
-                pathname === "/dashboard/site-media",
+            active: pathname === "/dashboard" || pathname === overviewHref,
             roles: ["ADMIN", "SALES", "FINANCE", "OPERATIONS", "VENDOR", "SITE_MEDIA"]
         },
         {
@@ -168,7 +171,9 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
     ]
 
     const filteredRoutes = routes.filter((route) => {
-        if (role === "SUPER_ADMIN") return true
+        if (role === "SUPER_ADMIN") {
+            return route.roles.includes("SUPER_ADMIN") || route.roles.includes("ADMIN") || route.roles.includes(role)
+        }
         return route.roles.includes(role)
     })
 

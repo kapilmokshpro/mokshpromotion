@@ -10,33 +10,33 @@ export const dynamic = "force-dynamic"
 export default async function OperationsPage() {
     const session = await getServerSession(authOptions)
 
-    // 1. Fetch LEADS for Ops Board (Received -> Printing -> Installation)
-    const opsLeads = await db.lead.findMany({
-        where: {
-            status: { in: ["HANDOFF_TO_OPS", "PRINTING", "INSTALLATION"] }
-        },
-        include: {
-            assignee: { select: { name: true } },
-            salesUser: { select: { name: true } },
-            financeUser: { select: { name: true } },
-            opsUser: { select: { name: true } },
-            logs: {
-                orderBy: { createdAt: 'desc' },
-                include: { user: { select: { name: true, role: true } } }
+    // Fetch Ops leads and stats concurrently
+    const [opsLeads, receivedCount, printingCount, installationCount] = await Promise.all([
+        db.lead.findMany({
+            where: {
+                status: { in: ["HANDOFF_TO_OPS", "PRINTING", "INSTALLATION"] }
             },
-            campaignItems: {
-                include: {
-                    inventoryHoarding: true
+            include: {
+                assignee: { select: { name: true } },
+                salesUser: { select: { name: true } },
+                financeUser: { select: { name: true } },
+                opsUser: { select: { name: true } },
+                logs: {
+                    orderBy: { createdAt: 'desc' },
+                    include: { user: { select: { name: true, role: true } } }
+                },
+                campaignItems: {
+                    include: {
+                        inventoryHoarding: true
+                    }
                 }
-            }
-        },
-        orderBy: { updatedAt: 'desc' }
-    })
-
-    // 2. Fetch Operations Stats
-    const receivedCount = await db.lead.count({ where: { status: 'HANDOFF_TO_OPS' } })
-    const printingCount = await db.lead.count({ where: { status: 'PRINTING' } })
-    const installationCount = await db.lead.count({ where: { status: 'INSTALLATION' } })
+            },
+            orderBy: { updatedAt: 'desc' }
+        }),
+        db.lead.count({ where: { status: 'HANDOFF_TO_OPS' } }),
+        db.lead.count({ where: { status: 'PRINTING' } }),
+        db.lead.count({ where: { status: 'INSTALLATION' } })
+    ])
 
     // Serialize leads to avoid "Decimal" plain object warnings
     const serializedLeads = opsLeads.map(lead => ({

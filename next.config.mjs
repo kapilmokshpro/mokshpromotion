@@ -1,4 +1,10 @@
 import bundleAnalyzer from '@next/bundle-analyzer';
+import dns from 'dns';
+
+// Force DNS resolution to prefer IPv4 to avoid broken IPv6 routing issues with AWS/Neon
+if (dns && dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 const withBundleAnalyzer = bundleAnalyzer({
     enabled: process.env.ANALYZE === 'true',

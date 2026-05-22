@@ -4,19 +4,21 @@ import { Users, Building2, FileText } from "lucide-react"
 import Link from "next/link"
 
 export default async function AdminDashboard() {
-    const leadCount = await db.lead.count()
-    const projectCount = await db.project.count({
-        where: {
-            status: {
-                notIn: ['COMPLETED', 'CANCELLED']
+    const [leadCount, projectCount, pendingInvoiceCount] = await Promise.all([
+        db.lead.count(),
+        db.project.count({
+            where: {
+                status: {
+                    notIn: ['COMPLETED', 'CANCELLED']
+                }
             }
-        }
-    })
-    const pendingInvoiceCount = await db.invoice.count({
-        where: {
-            status: 'PENDING'
-        }
-    })
+        }),
+        db.invoice.count({
+            where: {
+                status: 'PENDING'
+            }
+        })
+    ])
 
     return (
         <div className="space-y-8 animate-fade-in-up">

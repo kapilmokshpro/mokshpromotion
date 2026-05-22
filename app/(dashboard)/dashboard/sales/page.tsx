@@ -18,48 +18,43 @@ export default async function SalesDashboard() {
     // For "My Leads" metric, strictly filter by salesUserId
     const whereUser = isSales ? { salesUserId: userId } : {}
 
-    const totalLeads = await db.lead.count({ where: whereUser })
-
-    // Active: Work in progress (not closed, not lost, not just new)
-    const activeDeals = await db.lead.count({
-        where: {
-            ...whereUser,
-            status: { in: ['INTERESTED', 'IN_PROGRESS', 'HANDOFF_TO_OPS', 'PRINTING', 'INSTALLATION', 'FOLLOW_UP'] }
-        }
-    })
-
-    const wonDeals = await db.lead.count({
-        where: {
-            ...whereUser,
-            status: 'DEAL_CLOSED'
-        }
-    })
-
-    const lostDeals = await db.lead.count({
-        where: {
-            ...whereUser,
-            status: 'LOST'
-        }
-    })
+    // Fetch all sales pipeline data concurrently
+    const [totalLeads, activeDeals, wonDeals, lostDeals, recentLeads, allLeadsForFunnel] = await Promise.all([
+        db.lead.count({ where: whereUser }),
+        db.lead.count({
+            where: {
+                ...whereUser,
+                status: { in: ['INTERESTED', 'IN_PROGRESS', 'HANDOFF_TO_OPS', 'PRINTING', 'INSTALLATION', 'FOLLOW_UP'] }
+            }
+        }),
+        db.lead.count({
+            where: {
+                ...whereUser,
+                status: 'DEAL_CLOSED'
+            }
+        }),
+        db.lead.count({
+            where: {
+                ...whereUser,
+                status: 'LOST'
+            }
+        }),
+        db.lead.findMany({
+            where: whereUser,
+            take: 5,
+            orderBy: { updatedAt: 'desc' },
+            include: {
+                assignee: { select: { name: true } }
+            }
+        }),
+        db.lead.findMany({
+            where: whereUser,
+            select: { status: true }
+        })
+    ])
 
     const closedTotal = wonDeals + lostDeals
     const conversionRate = closedTotal > 0 ? Math.round((wonDeals / closedTotal) * 100) : 0
-
-    // Fetch Recent 5 Leads
-    const recentLeads = await db.lead.findMany({
-        where: whereUser,
-        take: 5,
-        orderBy: { updatedAt: 'desc' },
-        include: {
-            assignee: { select: { name: true } }
-        }
-    })
-
-    // Fetch status counts for funnel
-    const allLeadsForFunnel = await db.lead.findMany({
-        where: whereUser,
-        select: { status: true }
-    })
 
     const funnelCounts = {
         NEW: 0,
