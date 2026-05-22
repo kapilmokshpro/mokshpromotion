@@ -226,6 +226,10 @@ export async function POST(req: Request) {
             const state = getVal(["state"]) || "";
             const district = getVal(["district"]) || "";
             const areaType = getVal(["urbanhighwayrural", "areatype", "urbanrural"]);
+
+            const stateStr = String(state).toLowerCase().trim();
+            const districtStr = String(district).toLowerCase().trim();
+            const locationStr = String(locationName).toLowerCase().trim();
             
             const inventoryCode = String(huid || getVal(["code", "uniqueid", "id"]) || "").trim();
 
@@ -241,8 +245,8 @@ export async function POST(req: Request) {
             const rate = parseFloat(String(getVal(["rates", "ratepersqft", "rate"]) || "0").replace(/[^\d.-]/g, '')) || null;
             const printing = parseFloat(String(getVal(["printintingcharge", "printingcharge", "printing"]) || "0").replace(/[^\d.-]/g, '')) || null;
             const netTotal = parseFloat(String(getVal(["nettotal", "total"]) || "0").replace(/[^\d.-]/g, '')) || null;
-            const imageUrl = getVal(["imgurl", "link", "imageurl"]);
-            const view360Url = getVal(["360view", "360viewlink", "360url", "threesixtyview"]);
+            const imageUrl = getVal(["imgurl", "link", "imageurl", "image", "photo", "photourl", "photolink", "imagelink", "siteimage", "siteimageurl"]);
+            const view360Url = getVal(["360view", "360viewlink", "360link", "360url", "threesixtyview", "360degreeview", "360degree", "view360", "view360url", "view360link", "panoramicview", "panoramic", "panorama", "panaromicview", "virtualtour", "virtualtourlink", "virtualtoururl", "360", "360viewurl"]);
 
             // 3. UPSERT
             // Check if exists

@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Papa from "papaparse"
 import readXlsxFile from 'read-excel-file'
 import { useRouter } from "next/navigation"
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Download, Edit } from "lucide-react"
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Download, Edit, Clock, Timer } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -17,34 +17,114 @@ export default function InventoryUploader() {
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
 
+    // Timer State
+    const [elapsedSeconds, setElapsedSeconds] = useState(0)
+    const [totalTime, setTotalTime] = useState<string | null>(null)
+    const [uploadFileName, setUploadFileName] = useState<string | null>(null)
+    const [rowCount, setRowCount] = useState<number | null>(null)
+    const [processedRows, setProcessedRows] = useState(0)
+    const [progressPercent, setProgressPercent] = useState(0)
+    const [liveCreated, setLiveCreated] = useState(0)
+    const [liveUpdated, setLiveUpdated] = useState(0)
+    const [liveFailed, setLiveFailed] = useState(0)
+    const timerRef = useRef<NodeJS.Timeout | null>(null)
+    const startTimeRef = useRef<number>(0)
+
     // Bulk Update State
     const [bulkModalOpen, setBulkModalOpen] = useState(false)
     const [bulkCsv, setBulkCsv] = useState("")
 
-    const postData = async (data: any[]) => {
+    const startTimer = useCallback(() => {
+        startTimeRef.current = Date.now()
+        setElapsedSeconds(0)
+        setTotalTime(null)
+        timerRef.current = setInterval(() => {
+            setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000))
+        }, 1000)
+    }, [])
+
+    const stopTimer = useCallback(() => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+        }
+        const elapsed = (Date.now() - startTimeRef.current) / 1000
+        setTotalTime(elapsed < 60 ? `${elapsed.toFixed(1)}s` : `${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`)
+    }, [])
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current)
+        }
+    }, [])
+
+    const formatElapsed = (seconds: number) => {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${mins}:${secs.toString().padStart(2, '0')}`
+    }
+
+    const BATCH_SIZE = 100
+
+    const postDataInBatches = async (data: any[]) => {
+        let totalCreated = 0
+        let totalUpdated = 0
+        let totalFailed = 0
+        const allErrors: string[] = []
+
+        setProcessedRows(0)
+        setProgressPercent(0)
+        setLiveCreated(0)
+        setLiveUpdated(0)
+        setLiveFailed(0)
+
+        const totalRows = data.length
+        const batches = []
+        for (let i = 0; i < totalRows; i += BATCH_SIZE) {
+            batches.push(data.slice(i, i + BATCH_SIZE))
+        }
+
         try {
-            const response = await fetch("/api/inventory", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ data }),
-            })
+            for (let i = 0; i < batches.length; i++) {
+                const batch = batches[i]
+                const response = await fetch("/api/inventory", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ data: batch }),
+                })
 
-            const resData = await response.json()
+                const resData = await response.json()
 
-            if (!response.ok) {
-                // If the API returns detailed errors
-                if (resData.errors && resData.errors.length > 0) {
-                    throw new Error(`Import Failed. Errors: ${resData.errors.slice(0, 3).join(", ")} ${(resData.errors.length > 3 ? "..." : "")}`)
+                if (!response.ok) {
+                    if (resData.errors && resData.errors.length > 0) {
+                        allErrors.push(...resData.errors)
+                    }
+                    // Continue with next batch instead of stopping
+                    totalFailed += batch.length
+                } else {
+                    totalCreated += resData.created || 0
+                    totalUpdated += resData.updated || 0
+                    totalFailed += resData.failed || 0
+                    if (resData.errors) allErrors.push(...resData.errors)
                 }
-                throw new Error(resData.message || "Failed to import data")
+
+                const processed = Math.min((i + 1) * BATCH_SIZE, totalRows)
+                const percent = Math.round((processed / totalRows) * 100)
+                setProcessedRows(processed)
+                setProgressPercent(percent)
+                setLiveCreated(totalCreated)
+                setLiveUpdated(totalUpdated)
+                setLiveFailed(totalFailed)
             }
 
-            setSuccess(`Success! Created: ${resData.created}, Updated: ${resData.updated}.`)
-            if (resData.failed > 0) {
-                setError(`Completed with ${resData.failed} failed rows. Check console/logs.`)
+            stopTimer()
+            setSuccess(`Success! Created: ${totalCreated}, Updated: ${totalUpdated}.`)
+            if (totalFailed > 0) {
+                setError(`Completed with ${totalFailed} failed rows.${allErrors.length > 0 ? " Errors: " + allErrors.slice(0, 3).join(", ") + (allErrors.length > 3 ? "..." : "") : ""}`)
             }
             router.refresh()
         } catch (err: any) {
+            stopTimer()
             setError(err.message || "Failed to upload inventory. Please check the file format.")
             console.error(err)
         } finally {
@@ -60,6 +140,15 @@ export default function InventoryUploader() {
         setLoading(true)
         setError("")
         setSuccess("")
+        setTotalTime(null)
+        setUploadFileName(file.name)
+        setRowCount(null)
+        setProcessedRows(0)
+        setProgressPercent(0)
+        setLiveCreated(0)
+        setLiveUpdated(0)
+        setLiveFailed(0)
+        startTimer()
 
         const fileExt = file.name.split('.').pop()?.toLowerCase()
 
@@ -107,7 +196,8 @@ export default function InventoryUploader() {
                 }
 
                 if (allData.length === 0) throw new Error("No valid data found in any sheet")
-                await postData(allData)
+                setRowCount(allData.length)
+                await postDataInBatches(allData)
             } else {
                 // CSV Fallback
                 Papa.parse(file, {
@@ -115,7 +205,8 @@ export default function InventoryUploader() {
                     skipEmptyLines: true,
                     transformHeader: (h) => h.trim(),
                     complete: async (results) => {
-                        await postData(results.data)
+                        setRowCount(results.data.length)
+                        await postDataInBatches(results.data)
                     },
                     error: (err) => {
                         setError("Error parsing CSV file: " + err.message)
@@ -194,14 +285,73 @@ export default function InventoryUploader() {
                             disabled={loading}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                         />
-                        <div className="flex flex-col items-center justify-center space-y-2">
+                        <div className="flex flex-col items-center justify-center space-y-2 w-full">
                             {loading ? (
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                                <div className="w-full space-y-3 px-2">
+                                    {/* Progress Bar */}
+                                    <div className="w-full">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <div className="flex items-center gap-2 text-indigo-600">
+                                                <Timer className="w-4 h-4 animate-pulse" />
+                                                <span className="text-sm font-semibold tabular-nums">{formatElapsed(elapsedSeconds)}</span>
+                                            </div>
+                                            <span className="text-sm font-bold text-indigo-600 tabular-nums">{progressPercent}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                            <div
+                                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-600 transition-all duration-500 ease-out relative"
+                                                style={{ width: `${progressPercent}%` }}
+                                            >
+                                                {progressPercent > 5 && (
+                                                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Row Progress */}
+                                    <div className="text-center space-y-1">
+                                        {uploadFileName && (
+                                            <p className="text-xs text-gray-500 truncate max-w-full">{uploadFileName}</p>
+                                        )}
+                                        {rowCount ? (
+                                            <p className="text-sm font-medium text-gray-700">
+                                                {processedRows.toLocaleString()} / {rowCount.toLocaleString()} rows
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-gray-500">Parsing file...</p>
+                                        )}
+                                    </div>
+
+                                    {/* Live Counters */}
+                                    {processedRows > 0 && (
+                                        <div className="flex items-center justify-center gap-4 text-xs">
+                                            <span className="flex items-center gap-1 text-green-600">
+                                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                Created: {liveCreated}
+                                            </span>
+                                            <span className="flex items-center gap-1 text-blue-600">
+                                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                                Updated: {liveUpdated}
+                                            </span>
+                                            {liveFailed > 0 && (
+                                                <span className="flex items-center gap-1 text-red-600">
+                                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                                    Failed: {liveFailed}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             ) : (
                                 <Upload className="w-8 h-8 text-gray-400" />
                             )}
-                            <p className="text-sm font-medium text-gray-700">Import Excel / CSV</p>
-                            <p className="text-xs text-gray-500">Upsert Mode: Updates existing by Code, Creates new.</p>
+                            {!loading && (
+                                <>
+                                    <p className="text-sm font-medium text-gray-700">Import Excel / CSV</p>
+                                    <p className="text-xs text-gray-500">Upsert Mode: Updates existing by Code, Creates new.</p>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -255,7 +405,13 @@ export default function InventoryUploader() {
                     {success && (
                         <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-3 rounded">
                             <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                            {success}
+                            <span>{success}</span>
+                            {totalTime && (
+                                <span className="ml-auto flex items-center gap-1 text-xs text-green-500 bg-green-100 px-2 py-0.5 rounded-full font-medium">
+                                    <Clock className="w-3 h-3" />
+                                    {totalTime}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>

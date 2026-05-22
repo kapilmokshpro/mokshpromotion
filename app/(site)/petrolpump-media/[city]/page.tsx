@@ -4,6 +4,8 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { resolveSiteMediaUrl } from "@/lib/site-media"
 
+export const dynamic = "force-dynamic"
+
 type NullableNumberLike = number | string | null | undefined
 
 interface RawCityHoarding {

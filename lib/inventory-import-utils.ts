@@ -33,6 +33,7 @@ export interface ImportRow {
 export interface ParsedInventoryItem {
     inventoryCode: string; // Mandatory
     sourceSrNo: number | null;
+    huid: string | null; // Added for unique identification
     outletName: string;
     locationName: string;
     state: string;
@@ -210,9 +211,10 @@ export function parseImportRow(row: ImportRow, rowNumber: number): {
     const district = pickStringValue(['District']) || '';
 
     // Validate Inventory Code (Strict)
-    const inventoryCode = pickStringValue(['Inventory Code', 'Code', 'InventoryCode']);
+    const huid = pickStringValue(['Huid', 'HUID', 'huid']);
+    const inventoryCode = pickStringValue(['Inventory Code', 'Code', 'InventoryCode']) || huid;
     if (!inventoryCode) {
-        errors.push("Inventory Code is MISSING. It is mandatory.");
+        errors.push("Inventory Code / Huid is MISSING. It is mandatory.");
     }
 
     // Validate required fields
@@ -248,6 +250,8 @@ export function parseImportRow(row: ImportRow, rowNumber: number): {
     const view360Url = pickStringValue([
         "360 View",
         "360 View Link",
+        "360 link",
+        "360link",
         "360 URL",
         "Three Sixty View",
         "360View",
@@ -310,6 +314,7 @@ export function parseImportRow(row: ImportRow, rowNumber: number): {
     const item: ParsedInventoryItem = {
         inventoryCode: inventoryCode!,
         sourceSrNo: sourceSrNo ? Math.floor(sourceSrNo) : null,
+        huid,
         outletName,
         locationName,
         state,

@@ -60,16 +60,57 @@ export async function POST(req: Request) {
             let skipCount = 0;
 
             for (const item of items) {
+                // Skip/Exclude Punjab, Uttar Pradesh, and Chandigarh/Tricity records
+                const stateLower = (item.state || "").toLowerCase().trim();
+                const districtLower = (item.district || "").toLowerCase().trim();
+                const locationLower = (item.locationName || "").toLowerCase().trim();
+                
+                if (
+                    stateLower.includes("punjab") ||
+                    stateLower.includes("uttar pradesh") ||
+                    stateLower.includes("chandigarh") ||
+                    stateLower.includes("tricity") ||
+                    districtLower.includes("chandigarh") ||
+                    districtLower.includes("tricity") ||
+                    locationLower.includes("chandigarh") ||
+                    locationLower.includes("tricity")
+                ) {
+                    skipCount++;
+                    continue;
+                }
+
                 try {
                     // Check for duplicates
-                    const existing = await tx.inventoryHoarding.findFirst({
-                        where: {
-                            outletName: item.outletName,
-                            locationName: item.locationName,
-                            district: item.district,
-                            state: item.state,
-                        },
-                    });
+                    let existing = null;
+                    if (item.huid) {
+                        existing = await tx.inventoryHoarding.findFirst({
+                            where: { huid: item.huid }
+                        });
+                        
+                        if (!existing) {
+                            existing = await tx.inventoryHoarding.findFirst({
+                                where: {
+                                    outletName: item.outletName,
+                                    locationName: item.locationName,
+                                    district: item.district,
+                                    state: item.state,
+                                    OR: [
+                                        { huid: null },
+                                        { huid: "" }
+                                    ]
+                                }
+                            });
+                        }
+                    } else {
+                        existing = await tx.inventoryHoarding.findFirst({
+                            where: {
+                                outletName: item.outletName,
+                                locationName: item.locationName,
+                                district: item.district,
+                                state: item.state,
+                            },
+                        });
+                    }
 
                     if (existing) {
                         if (duplicateHandling === "update") {
@@ -77,6 +118,8 @@ export async function POST(req: Request) {
                             await tx.inventoryHoarding.update({
                                 where: { id: existing.id },
                                 data: {
+                                    inventoryCode: item.inventoryCode,
+                                    huid: item.huid,
                                     sourceSrNo: item.sourceSrNo,
                                     areaType: item.areaType,
                                     widthFt: item.widthFt,
@@ -111,6 +154,8 @@ export async function POST(req: Request) {
                         // Create new
                         await tx.inventoryHoarding.create({
                             data: {
+                                inventoryCode: item.inventoryCode,
+                                huid: item.huid,
                                 sourceSrNo: item.sourceSrNo,
                                 outletName: item.outletName,
                                 locationName: item.locationName,

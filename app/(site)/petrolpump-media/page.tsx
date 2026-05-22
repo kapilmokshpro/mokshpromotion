@@ -3,6 +3,8 @@ import CartFooter from "@/components/CartFooter"
 import InventoryList from "@/components/InventoryList"
 import { resolveSiteMediaUrl } from "@/lib/site-media"
 
+export const dynamic = "force-dynamic"
+
 export default async function PetrolPumpMediaPage() {
     // Fetch Inventory Data - Filtered to AVAILABLE only
     // Update: Hide if bookingEndDate >= Today (Active or Upcoming booking exists)

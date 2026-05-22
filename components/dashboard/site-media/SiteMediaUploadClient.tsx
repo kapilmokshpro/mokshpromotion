@@ -285,13 +285,32 @@ export default function SiteMediaUploadClient({
                         {[site.locationName, site.city || site.district, site.state].filter(Boolean).join(", ")}
                     </p>
                     <p className="mt-3 text-xs uppercase tracking-wide text-gray-500">360 View Link</p>
-                    {site.view360Url ? (
-                        <a href={site.view360Url} target="_blank" rel="noreferrer" className="mt-1 block text-sm text-blue-600 hover:text-blue-800">
-                            {site.view360Url}
-                        </a>
-                    ) : (
-                        <p className="mt-1 text-sm text-gray-500">Not available</p>
-                    )}
+                    {(() => {
+                        const isValidUrl = site.view360Url && 
+                            (site.view360Url.trim().startsWith("http://") || site.view360Url.trim().startsWith("https://"));
+                        
+                        if (isValidUrl) {
+                            return (
+                                <a href={site.view360Url!.trim()} target="_blank" rel="noreferrer" className="mt-1 block text-sm text-blue-600 hover:text-blue-800 truncate max-w-xs">
+                                    {site.view360Url}
+                                </a>
+                            );
+                        } else {
+                            const queryStr = [site.outletName, site.locationName, site.district, site.state]
+                                .filter(Boolean)
+                                .join(", ");
+                            return (
+                                <a 
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryStr)}`} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="mt-1 block text-sm text-blue-600 hover:text-blue-800 underline font-medium"
+                                >
+                                    Google Maps Search ↗
+                                </a>
+                            );
+                        }
+                    })()}
                 </div>
             </div>
 

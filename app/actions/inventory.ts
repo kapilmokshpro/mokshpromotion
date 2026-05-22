@@ -18,6 +18,8 @@ export async function updateInventoryItem(id: number, data: {
     discountedRate?: number | null
     netTotal?: number | null
     isActive?: boolean
+    view360Url?: string | null
+    imageUrl?: string | null
 }) {
     await checkAdmin()
 

@@ -39,6 +39,7 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
         currentIndex: number
         videoUrl?: string | null
         view360Url?: string | null
+        locationQuery?: string
     } | null>(null)
 
     const filteredHoardings = useMemo(() => {
@@ -157,6 +158,9 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                                                             currentIndex: 0,
                                                             videoUrl: hoarding.mediaVideoUrl,
                                                             view360Url: hoarding.view360Url,
+                                                            locationQuery: [hoarding.name, hoarding.location, hoarding.district, hoarding.state]
+                                                                .filter(Boolean)
+                                                                .join(", ")
                                                         })
                                                     }
                                                     className="text-gray-400 hover:text-blue-600 transition-colors"
@@ -258,17 +262,26 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                                             Open video
                                         </a>
                                     )}
-                                    {selectedGallery.view360Url && (
-                                        <a
-                                            href={selectedGallery.view360Url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="underline underline-offset-2"
-                                            onClick={(event) => event.stopPropagation()}
-                                        >
-                                            360 view
-                                        </a>
-                                    )}
+                                    {(() => {
+                                        const view360Url = selectedGallery.view360Url?.trim();
+                                        const isValidUrl = !!(view360Url && (view360Url.startsWith("http://") || view360Url.startsWith("https://")));
+                                        
+                                        const mapsUrl = (isValidUrl && view360Url)
+                                            ? view360Url
+                                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedGallery.locationQuery || selectedGallery.title)}`;
+                                        
+                                        return (
+                                            <a
+                                                href={mapsUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="underline underline-offset-2"
+                                                onClick={(event) => event.stopPropagation()}
+                                            >
+                                                {isValidUrl ? "360 view" : "Google Maps"}
+                                            </a>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         </div>

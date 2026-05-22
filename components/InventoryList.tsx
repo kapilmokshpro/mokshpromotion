@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogClose, DialogDescription, DialogTitle } fr
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map, Search, ChevronLeft } from "lucide-react";
+import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map, Search, ChevronLeft, Globe } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -593,6 +593,31 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                         </div>
                                     )}
                                 </div>
+                                {(() => {
+                                    const view360Url = selectedItem?.view360Url?.trim();
+                                    const isValidUrl = !!(view360Url && (view360Url.startsWith("http://") || view360Url.startsWith("https://")));
+                                    
+                                    const mapsUrl = (isValidUrl && view360Url)
+                                        ? view360Url 
+                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                            [selectedItem?.outletName, selectedItem?.locationName, selectedItem?.district, selectedItem?.state]
+                                                .filter(Boolean)
+                                                .join(", ")
+                                          )}`;
+                                    
+                                    return (
+                                        <a
+                                            href={mapsUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg bg-gradient-to-r from-[#002147] to-[#003366] text-white font-semibold text-sm hover:from-[#003366] hover:to-[#004488] transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
+                                        >
+                                            {isValidUrl ? <Globe className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
+                                            {isValidUrl ? "Open 360° View" : "View Location on Google Maps"}
+                                            <span className="text-white/60 text-xs">↗</span>
+                                        </a>
+                                    );
+                                })()}
                                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
                                     <h3 className="font-semibold text-[#002147] mb-2 flex items-center gap-2">
                                         <Info className="w-4 h-4" />
@@ -601,19 +626,43 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                     <ul className="text-sm text-gray-700 space-y-1 ml-5 list-disc">
                                         <li>{activeMediaImages.length} active image(s)</li>
                                         <li>{selectedItem?.mediaVideoUrl ? "1 active video available" : "No active video uploaded"}</li>
-                                        {selectedItem?.view360Url && (
-                                            <li>
-                                                360 view:{" "}
-                                                <a
-                                                    href={selectedItem.view360Url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="text-blue-700 hover:text-blue-900 underline"
-                                                >
-                                                    Open link
-                                                </a>
-                                            </li>
-                                        )}
+                                        {(() => {
+                                            const view360Url = selectedItem?.view360Url?.trim();
+                                            const isValidUrl = !!(view360Url && (view360Url.startsWith("http://") || view360Url.startsWith("https://")));
+                                            
+                                            if (isValidUrl && view360Url) {
+                                                return (
+                                                    <li>
+                                                        360 view:{" "}
+                                                        <a
+                                                            href={view360Url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-blue-700 hover:text-blue-900 underline"
+                                                        >
+                                                            Open link
+                                                        </a>
+                                                    </li>
+                                                );
+                                            } else {
+                                                const queryStr = [selectedItem?.outletName, selectedItem?.locationName, selectedItem?.district, selectedItem?.state]
+                                                    .filter(Boolean)
+                                                    .join(", ");
+                                                return (
+                                                    <li>
+                                                        Location:{" "}
+                                                        <a
+                                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryStr)}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-blue-700 hover:text-blue-900 underline"
+                                                        >
+                                                            Google Maps link
+                                                        </a>
+                                                    </li>
+                                                );
+                                            }
+                                        })()}
                                         <li>High visibility location</li>
                                         <li>24/7 Illumination available</li>
                                         <li>High footfall area</li>

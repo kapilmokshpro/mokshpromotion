@@ -17,6 +17,8 @@ export default async function InventoryPage() {
             discountedRate: true,
             netTotal: true,
             availabilityStatus: true,
+            imageUrl: true,
+            view360Url: true,
             createdAt: true,
         },
         orderBy: { createdAt: 'desc' }
@@ -33,6 +35,8 @@ export default async function InventoryPage() {
         discountedRate: item.discountedRate ? Number(item.discountedRate) : 0,
         netTotal: item.netTotal ? Number(item.netTotal) : 0,
         availabilityStatus: item.availabilityStatus,
+        imageUrl: item.imageUrl || null,
+        view360Url: item.view360Url || null,
         createdAt: item.createdAt.toISOString()
     }))
 

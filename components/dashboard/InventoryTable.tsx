@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, Loader2, Save, Archive, RefreshCw } from "lucide-react"
+import { Search, Loader2, Save, Archive, RefreshCw, Pencil, X } from "lucide-react"
 import { updateInventoryItem, toggleInventoryStatus } from "@/app/actions/inventory"
 import { formatCurrency } from "@/lib/utils"
 import { toast } from "sonner" 
@@ -37,6 +37,7 @@ interface InventoryItem {
     discountedRate: number
     netTotal: number
     imageUrl?: string | null
+    view360Url?: string | null
     availabilityStatus: string
 }
 
@@ -53,7 +54,12 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
 
     // Editing State
     const [editingId, setEditingId] = useState<number | null>(null)
-    const [editValues, setEditValues] = useState<{ discountedRate?: number, netTotal?: number }>({})
+    const [editValues, setEditValues] = useState<{ 
+        discountedRate?: number
+        netTotal?: number
+        view360Url?: string | null
+        imageUrl?: string | null
+    }>({})
     const [saving, setSaving] = useState(false)
 
     // Derived Filters
@@ -95,7 +101,9 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
         setEditingId(item.id)
         setEditValues({
             discountedRate: item.discountedRate,
-            netTotal: item.netTotal
+            netTotal: item.netTotal,
+            view360Url: item.view360Url || "",
+            imageUrl: item.imageUrl || ""
         })
     }
 
@@ -201,25 +209,88 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                             paginatedData.map((item) => (
                                 <TableRow key={item.id} className={!item.isActive ? "bg-gray-50 opacity-75" : ""}>
                                     <TableCell>
-                                        <div className="relative h-10 w-10 rounded border overflow-hidden bg-gray-50">
-                                            {item.imageUrl ? (
-                                                <Image 
-                                                    src={item.imageUrl} 
-                                                    alt="Stock" 
-                                                    fill 
-                                                    className="object-cover"
-                                                />
-                                            ) : (
-                                                <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-300">
-                                                    No Img
-                                                </div>
-                                            )}
+                                        <div className="flex flex-col items-center gap-1.5 py-1">
+                                            <div className="relative h-10 w-10 rounded border overflow-hidden bg-gray-50 shadow-sm">
+                                                {item.imageUrl ? (
+                                                    <Image 
+                                                        src={item.imageUrl} 
+                                                        alt="Stock" 
+                                                        fill 
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-300">
+                                                        No Img
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {(() => {
+                                                const view360Url = item.view360Url?.trim();
+                                                const isValidUrl = !!(view360Url && (view360Url.startsWith("http://") || view360Url.startsWith("https://")));
+                                                
+                                                const mapsUrl = (isValidUrl && view360Url)
+                                                    ? view360Url
+                                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                                                        [item.outletName, item.locationName, item.district, item.state]
+                                                            .filter(Boolean)
+                                                            .join(", ")
+                                                      )}`;
+                                                
+                                                return (
+                                                    <a 
+                                                        href={mapsUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <Badge 
+                                                            variant="outline" 
+                                                            className={`text-[9px] px-1.5 py-0 cursor-pointer transition-all font-semibold select-none shadow-sm ${
+                                                                isValidUrl 
+                                                                    ? "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 hover:text-blue-800" 
+                                                                    : "bg-green-50 text-green-600 border-green-200 hover:bg-green-100 hover:text-green-800"
+                                                            }`}
+                                                        >
+                                                            {isValidUrl ? "360° View" : "Google Maps"}
+                                                        </Badge>
+                                                    </a>
+                                                );
+                                            })()}
                                         </div>
                                     </TableCell>
                                     <TableCell className="font-mono text-xs">{item.inventoryCode || "-"}</TableCell>
                                     <TableCell>
-                                        <div className="font-medium">{item.outletName}</div>
-                                        <div className="text-xs text-gray-500 truncate max-w-[200px]">{item.locationName}</div>
+                                        {editingId === item.id ? (
+                                            <div className="space-y-2">
+                                                <div className="font-medium">{item.outletName}</div>
+                                                <div className="text-xs text-gray-500 truncate max-w-[200px]">{item.locationName}</div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">360° View Link</label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="360 view link"
+                                                        value={editValues.view360Url || ""}
+                                                        onChange={(e) => setEditValues({ ...editValues, view360Url: e.target.value })}
+                                                        className="h-8 text-xs w-full"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">Image URL</label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Image URL"
+                                                        value={editValues.imageUrl || ""}
+                                                        onChange={(e) => setEditValues({ ...editValues, imageUrl: e.target.value })}
+                                                        className="h-8 text-xs w-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="font-medium">{item.outletName}</div>
+                                                <div className="text-xs text-gray-500 truncate max-w-[200px]">{item.locationName}</div>
+                                            </>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <div className="text-sm">{item.state}</div>
@@ -266,20 +337,35 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                                         )}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2">
+                                        <div className="flex justify-end gap-1.5">
                                             {editingId === item.id ? (
-                                                <Button size="sm" onClick={() => handleSave(item.id)} disabled={saving}>
-                                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                                </Button>
+                                                <>
+                                                    <Button size="sm" onClick={() => handleSave(item.id)} disabled={saving} title="Save Changes">
+                                                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" onClick={() => setEditingId(null)} disabled={saving} title="Cancel">
+                                                        <X className="w-4 h-4 text-gray-500" />
+                                                    </Button>
+                                                </>
                                             ) : (
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() => handleToggleStatus(item.id, item.isActive)}
-                                                    title={item.isActive ? "Archive" : "Activate"}
-                                                >
-                                                    {item.isActive ? <Archive className="w-4 h-4 text-gray-500" /> : <RefreshCw className="w-4 h-4 text-green-600" />}
-                                                </Button>
+                                                <>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleEditStart(item)}
+                                                        title="Edit Item"
+                                                    >
+                                                        <Pencil className="w-4 h-4 text-gray-500 hover:text-blue-600" />
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => handleToggleStatus(item.id, item.isActive)}
+                                                        title={item.isActive ? "Archive" : "Activate"}
+                                                    >
+                                                        {item.isActive ? <Archive className="w-4 h-4 text-gray-500" /> : <RefreshCw className="w-4 h-4 text-green-600" />}
+                                                    </Button>
+                                                </>
                                             )}
                                         </div>
                                     </TableCell>
