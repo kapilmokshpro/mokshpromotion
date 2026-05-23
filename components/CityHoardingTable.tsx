@@ -134,8 +134,8 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                                         <tr key={hoarding.id} className={`hover:bg-blue-50 transition-colors ${isSelected ? "bg-blue-50" : "bg-white"}`}>
                                             <td className="px-3 py-3 text-center font-medium">{index + 1}</td>
                                             <td className="px-3 py-3 font-medium text-blue-600">{hoarding.name || "N/A"}</td>
-                                            <td className="px-3 py-3 text-gray-700 max-w-xs truncate" title={hoarding.location}>
-                                                {hoarding.location}
+                                            <td className="px-3 py-3 text-gray-700 max-w-xs truncate" title={hoarding.location || hoarding.name || ""}>
+                                                {hoarding.location || hoarding.name}
                                             </td>
                                             <td className="px-3 py-3 whitespace-nowrap">{hoarding.district || "-"}</td>
                                             <td className="px-3 py-3 text-center">{hoarding.hoardingsCount}</td>

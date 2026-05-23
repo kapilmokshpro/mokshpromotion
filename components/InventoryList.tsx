@@ -488,7 +488,9 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                                     {isBooked && <X className="w-4 h-4 text-red-500 mx-auto" />}
                                                 </td>
                                                 <td className="px-6 py-4 font-semibold text-gray-800">{item.outletName}</td>
-                                                <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{item.locationName}</td>
+                                                <td className="px-6 py-4 text-gray-600 max-w-xs truncate" title={item.locationName || item.outletName}>
+                                                    {item.locationName || item.outletName}
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <span className="text-xs">{item.state}, {item.district}</span>
                                                 </td>
@@ -517,7 +519,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                     </div>
                 </div>
             )}
-
+ 
             <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
                 <DialogContent className="max-w-3xl overflow-hidden p-0 gap-0">
                     <DialogTitle className="sr-only">
@@ -536,7 +538,11 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                             </div>
                             <div className="flex items-center gap-2 mt-2 text-blue-200 text-sm">
                                 <MapPin className="w-4 h-4" />
-                                <span>{selectedItem?.locationName}, {selectedItem?.district}, {selectedItem?.state}</span>
+                                <span>
+                                    {[selectedItem?.locationName, selectedItem?.district, selectedItem?.state]
+                                        .filter(Boolean)
+                                        .join(", ")}
+                                </span>
                             </div>
                         </div>
                         <DialogClose className="text-white/70 hover:text-white">
