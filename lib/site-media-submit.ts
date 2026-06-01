@@ -1,5 +1,6 @@
 import { InventorySiteMediaType } from "@prisma/client"
 import { db } from "@/lib/db"
+import { MAX_SITE_MEDIA_IMAGES } from "@/lib/site-media-storage"
 
 export type PersistableSiteMedia = {
     type: InventorySiteMediaType
@@ -23,20 +24,26 @@ export async function persistSubmittedSiteMedia(params: {
     const now = new Date()
 
     const updated = await db.$transaction(async (tx) => {
-        if (images.length > 0) {
-            await tx.inventorySiteMedia.updateMany({
+        const existingImages = images.length > 0
+            ? await tx.inventorySiteMedia.findMany({
                 where: {
                     inventoryHoardingId: siteId,
                     type: InventorySiteMediaType.IMAGE,
                     isActive: true,
                 },
-                data: {
-                    isActive: false,
-                    replacedAt: now,
-                    replacedById: Number.isInteger(userId || NaN) ? userId : null,
-                    archivedAt: now,
+                orderBy: [
+                    { sortOrder: "asc" },
+                    { createdAt: "asc" },
+                ],
+                select: {
+                    url: true,
+                    sortOrder: true,
                 },
             })
+            : []
+
+        if (existingImages.length + images.length > MAX_SITE_MEDIA_IMAGES) {
+            throw new Error(`This site already has ${existingImages.length} active image(s). Delete images or upload only ${MAX_SITE_MEDIA_IMAGES - existingImages.length} more.`)
         }
 
         if (videos.length > 0) {
@@ -56,6 +63,8 @@ export async function persistSubmittedSiteMedia(params: {
         }
 
         if (images.length > 0) {
+            const nextSortOrder = existingImages.reduce((max, image) => Math.max(max, image.sortOrder), -1) + 1
+
             await tx.inventorySiteMedia.createMany({
                 data: images.map((image, index) => ({
                     inventoryHoardingId: siteId,
@@ -66,7 +75,7 @@ export async function persistSubmittedSiteMedia(params: {
                     fileName: image.fileName,
                     mimeType: image.mimeType,
                     size: image.size,
-                    sortOrder: index,
+                    sortOrder: nextSortOrder + index,
                     isActive: true,
                     uploadedById: Number.isInteger(userId || NaN) ? userId : null,
                 })),
@@ -75,7 +84,7 @@ export async function persistSubmittedSiteMedia(params: {
             await tx.inventoryHoarding.update({
                 where: { id: siteId },
                 data: {
-                    imageUrl: images[0]?.url || null,
+                    imageUrl: existingImages[0]?.url || images[0]?.url || null,
                 },
             })
         }

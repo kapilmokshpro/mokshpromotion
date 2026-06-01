@@ -157,10 +157,17 @@ export default function SiteMediaUploadClient({
         setError("")
         setSuccess("")
 
+        const remainingImageSlots = MAX_IMAGES - site.media.images.length
         const mergedFiles = [...images, ...nextFiles]
 
-        if (mergedFiles.length > MAX_IMAGES) {
-            setError(`You can select up to ${MAX_IMAGES} images.`)
+        if (remainingImageSlots <= 0) {
+            setError(`This site already has ${MAX_IMAGES} active images. Delete an image before uploading more.`)
+            event.target.value = ""
+            return
+        }
+
+        if (mergedFiles.length > remainingImageSlots) {
+            setError(`You can add ${remainingImageSlots} more image(s). Delete existing images to upload more.`)
             event.target.value = ""
             return
         }
@@ -316,7 +323,7 @@ export default function SiteMediaUploadClient({
 
             setImages([])
             setVideo(null)
-            setSuccess("Site media updated successfully.")
+            setSuccess(images.length > 0 ? "Image(s) added successfully." : "Site media updated successfully.")
             await refreshSite()
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to upload media")
@@ -471,7 +478,7 @@ export default function SiteMediaUploadClient({
                         className="block w-full text-sm"
                     />
                     <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
-                        <span>Selected {images.length} of {MAX_IMAGES} image(s)</span>
+                        <span>Selected {images.length} of {Math.max(0, MAX_IMAGES - activeImages.length)} available slot(s)</span>
                         {images.length > 0 && (
                             <button
                                 type="button"
@@ -519,7 +526,7 @@ export default function SiteMediaUploadClient({
             <div className="rounded-xl border border-gray-200 bg-white p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-gray-600">
-                        This submission will replace the currently active media of the same type (images and/or video) for this site.
+                        Image uploads will be added to the current active images up to 5 total. Video uploads replace the active video.
                     </p>
                     <button
                         type="button"
