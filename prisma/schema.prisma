@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -47,12 +48,14 @@ enum InventorySiteMediaSource {
 
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  phone     String?
-  role      String   @default("SALES") // SUPER_ADMIN, ADMIN, SALES, FINANCE, OPERATIONS
+  id         Int      @id @default(autoincrement())
+  employeeId String?  @unique    // MPL001, MPL002, etc.
+  name       String
+  email      String   @unique
+  password   String
+  phone      String?
+  role       String   @default("SALES") // SUPER_ADMIN, ADMIN, SALES, FINANCE, OPERATIONS, GRAPHIC, HR, UNASSIGNED
+  department String?  // SALES, OPERATIONS, GRAPHIC, ACCOUNT, HR
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -78,6 +81,9 @@ model User {
   vendorProofReviews VendorSiteProof[]       @relation("VendorProofApprovals")
   siteMediaUploads   InventorySiteMedia[]    @relation("InventorySiteMediaUploadedBy")
   siteMediaReplaced  InventorySiteMedia[]    @relation("InventorySiteMediaReplacedBy")
+
+  tasksAssigned      WorkTask[]              @relation("TasksAssignedTo")
+  tasksGiven         WorkTask[]              @relation("TasksAssignedBy")
 }
 
 // ... existing models ...
@@ -660,4 +666,26 @@ model VendorSiteProofMedia {
   createdAt DateTime             @default(now())
 
   @@index([proofId, type])
+}
+
+model WorkTask {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  status       String   @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED
+  priority     String   @default("MEDIUM")  // LOW, MEDIUM, HIGH
+  
+  assignedToId Int
+  assignedTo   User     @relation("TasksAssignedTo", fields: [assignedToId], references: [id])
+  
+  assignedById Int
+  assignedBy   User     @relation("TasksAssignedBy", fields: [assignedById], references: [id])
+  
+  dueDate      DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([assignedToId])
+  @@index([assignedById])
+  @@index([status])
 }

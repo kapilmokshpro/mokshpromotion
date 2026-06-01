@@ -233,13 +233,10 @@ export default function InventoryList({ inventory }: InventoryListProps) {
         setSelectedItem(item);
     };
 
-    const activeMediaImages = selectedItem?.mediaImages?.length
-        ? selectedItem.mediaImages
-        : selectedItem?.imageUrl
-            ? [selectedItem.imageUrl]
-            : [];
+    const activeMediaImages = selectedItem?.mediaImages?.length ? selectedItem.mediaImages : [];
 
     const activeMediaImage = activeMediaImages[currentImageIndex] || null;
+    const uploadedImageCount = selectedItem?.mediaImages?.length || 0;
 
     return (
         <div className="space-y-6">
@@ -417,9 +414,29 @@ export default function InventoryList({ inventory }: InventoryListProps) {
             {viewState === "ITEMS" && (
                 <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                        <h3 className="font-bold text-[#002147] text-lg">
-                            {selectedDistrict}, {selectedState}
-                            <Badge variant="secondary" className="ml-3 bg-blue-100 text-[#002147]">
+                        <h3 className="font-bold text-[#002147] text-base sm:text-lg flex flex-wrap items-center gap-2">
+                            <select
+                                value={selectedDistrict || ""}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val) {
+                                        setSelectedDistrict(val);
+                                    } else {
+                                        setSelectedDistrict(null);
+                                        setViewState("DISTRICTS");
+                                    }
+                                }}
+                                className="bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm font-bold text-[#002147] focus:outline-none focus:ring-2 focus:ring-[#002147] cursor-pointer shadow-sm"
+                            >
+                                <option value="">Select district</option>
+                                {uniqueDistricts.map((d) => (
+                                    <option key={d} value={d}>
+                                        {d}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="text-gray-500 font-medium text-sm sm:text-base">, {selectedState}</span>
+                            <Badge variant="secondary" className="bg-blue-100 text-[#002147] font-semibold text-xs py-1">
                                 {filteredInventory.length} Outlets Available
                             </Badge>
                         </h3>
@@ -462,13 +479,14 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                     <th className="px-6 py-4">State / District</th>
                                     <th className="px-6 py-4 text-center">Dimensions</th>
                                     <th className="px-6 py-4 text-right">Rate</th>
+                                    <th className="px-6 py-4 text-center">360 View</th>
                                     <th className="px-6 py-4 text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {filteredInventory.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-10 text-center text-gray-500">
+                                        <td colSpan={8} className="px-6 py-10 text-center text-gray-500">
                                             No inventory found for "{searchQuery}".
                                         </td>
                                     </tr>
@@ -498,6 +516,21 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                                     {(item.widthFt || item.width)}' x {(item.heightFt || item.height)}'
                                                 </td>
                                                 <td className="px-6 py-4 text-right font-bold text-[#002147]">{formatCurrency((item.ratePerSqft || item.rate) || 0)}</td>
+                                                <td className="px-6 py-4 text-center no-modal-trigger">
+                                                    {item.view360Url ? (
+                                                        <a
+                                                            href={item.view360Url.startsWith("http") ? item.view360Url : `https://${item.view360Url}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="inline-flex items-center gap-1 px-3 py-1 rounded bg-[#002147] text-white hover:bg-opacity-90 font-medium text-xs shadow-sm hover:shadow transition-all"
+                                                        >
+                                                            <Globe className="w-3.5 h-3.5" />
+                                                            <span>360° View</span>
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-xs">-</span>
+                                                    )}
+                                                </td>
                                                 <td className="px-6 py-4 text-center no-modal-trigger">
                                                     <Button
                                                         variant="ghost"
@@ -553,7 +586,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                     <div className="p-6 bg-gray-50 max-h-[70vh] overflow-y-auto">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-6">
-                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm aspect-video flex items-center justify-center bg-gray-100 overflow-hidden relative">
+                                <div className="group relative aspect-video overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ring-1 ring-black/5">
                                     {activeMediaImage ? (
                                         <>
                                             <Image
@@ -563,8 +596,9 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                                 unoptimized
                                                 sizes="(max-width: 768px) 100vw, 50vw"
                                                 quality={70}
-                                                className="object-cover"
+                                                className="object-contain p-2"
                                             />
+                                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
                                             {activeMediaImages.length > 1 && (
                                                 <>
                                                     <button
@@ -574,9 +608,10 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                                                 prev === 0 ? activeMediaImages.length - 1 : prev - 1
                                                             )
                                                         }
-                                                        className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+                                                        className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:bg-white hover:text-[#002147] focus:outline-none focus:ring-2 focus:ring-[#002147]/40"
+                                                        aria-label="Previous image"
                                                     >
-                                                        <ChevronLeft className="h-4 w-4" />
+                                                        <ChevronLeft className="h-5 w-5" />
                                                     </button>
                                                     <button
                                                         type="button"
@@ -585,20 +620,68 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                                                 prev === activeMediaImages.length - 1 ? 0 : prev + 1
                                                             )
                                                         }
-                                                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"
+                                                        className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-md transition hover:bg-white hover:text-[#002147] focus:outline-none focus:ring-2 focus:ring-[#002147]/40"
+                                                        aria-label="Next image"
                                                     >
-                                                        <ChevronRight className="h-4 w-4" />
+                                                        <ChevronRight className="h-5 w-5" />
                                                     </button>
                                                 </>
                                             )}
+                                            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-gray-800 shadow-md">
+                                                {activeMediaImages.map((_, index) => (
+                                                    <button
+                                                        key={index}
+                                                        type="button"
+                                                        onClick={() => setCurrentImageIndex(index)}
+                                                        className={cn(
+                                                            "h-2 w-2 rounded-full transition",
+                                                            index === currentImageIndex ? "bg-[#002147]" : "bg-gray-300 hover:bg-gray-500"
+                                                        )}
+                                                        aria-label={`Show image ${index + 1}`}
+                                                    />
+                                                ))}
+                                                <span className="ml-1">{currentImageIndex + 1}/{activeMediaImages.length}</span>
+                                            </div>
                                         </>
                                     ) : (
-                                        <div className="text-center text-gray-400">
-                                            <Maximize2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                            <span className="text-sm">No Preview Image</span>
+                                        <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-4 text-center">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                                                <Info className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-semibold text-gray-700">No uploaded site images</p>
+                                                <p className="mt-1 text-xs text-gray-500">Upload images from Site Media to show them here.</p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
+                                {activeMediaImages.length > 1 && (
+                                    <div className="grid grid-cols-5 gap-2">
+                                        {activeMediaImages.slice(0, 5).map((imageUrl, index) => (
+                                            <button
+                                                key={`${imageUrl}-${index}`}
+                                                type="button"
+                                                onClick={() => setCurrentImageIndex(index)}
+                                                className={cn(
+                                                    "relative aspect-video overflow-hidden rounded-md border bg-white transition",
+                                                    index === currentImageIndex
+                                                        ? "border-[#002147] ring-2 ring-[#002147]/25"
+                                                        : "border-gray-200 hover:border-gray-400"
+                                                )}
+                                                aria-label={`Show image ${index + 1}`}
+                                            >
+                                                <Image
+                                                    src={imageUrl}
+                                                    alt={`${selectedItem?.outletName || "Site image"} thumbnail ${index + 1}`}
+                                                    fill
+                                                    unoptimized
+                                                    sizes="96px"
+                                                    className="object-cover"
+                                                />
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                                 {(() => {
                                     const view360Url = selectedItem?.view360Url?.trim();
                                     const isValidUrl = !!(view360Url && (view360Url.startsWith("http://") || view360Url.startsWith("https://")));
@@ -624,7 +707,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                         Media Highlights
                                     </h3>
                                     <ul className="text-sm text-gray-700 space-y-1 ml-5 list-disc">
-                                        <li>{activeMediaImages.length} active image(s)</li>
+                                        <li>{uploadedImageCount} active image(s)</li>
                                         <li>{selectedItem?.mediaVideoUrl ? "1 active video available" : "No active video uploaded"}</li>
                                         {(() => {
                                             const view360Url = selectedItem?.view360Url?.trim();
@@ -644,24 +727,9 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                                         </a>
                                                     </li>
                                                 );
-                                            } else {
-                                                const queryStr = [selectedItem?.outletName, selectedItem?.locationName, selectedItem?.district, selectedItem?.state]
-                                                    .filter(Boolean)
-                                                    .join(", ");
-                                                return (
-                                                    <li>
-                                                        Location:{" "}
-                                                        <a
-                                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryStr)}`}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="text-blue-700 hover:text-blue-900 underline"
-                                                        >
-                                                            Google Maps link
-                                                        </a>
-                                                    </li>
-                                                );
                                             }
+
+                                            return null;
                                         })()}
                                         <li>High visibility location</li>
                                         <li>24/7 Illumination available</li>

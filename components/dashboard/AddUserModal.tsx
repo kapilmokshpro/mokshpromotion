@@ -21,7 +21,9 @@ export default function AddUserModal({ onClose }: { onClose: () => void }) {
             name: "",
             email: "",
             password: "",
-            role: "SALES"
+            role: "SALES",
+            department: undefined,
+            employeeId: "",
         }
     })
 
@@ -71,6 +73,15 @@ export default function AddUserModal({ onClose }: { onClose: () => void }) {
 
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <div>
+                        <label className="block text-sm font-medium text-gray-700">Employee ID</label>
+                        <input
+                            {...form.register("employeeId")}
+                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="e.g. MPL031"
+                        />
+                    </div>
+
+                    <div>
                         <label className="block text-sm font-medium text-gray-700">Name</label>
                         <input
                             {...form.register("name")}
@@ -101,19 +112,39 @@ export default function AddUserModal({ onClose }: { onClose: () => void }) {
                         {form.formState.errors.password && <p className="text-red-500 text-xs mt-1">{form.formState.errors.password.message}</p>}
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Role</label>
-                        <select
-                            {...form.register("role")}
-                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="SALES">Sales</option>
-                            <option value="FINANCE">Finance</option>
-                            <option value="OPERATIONS">Operations</option>
-                            <option value="ADMIN">Admin</option>
-                            <option value="VENDOR">Vendor</option>
-                            <option value="SITE_MEDIA">Site Media</option>
-                        </select>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Role</label>
+                            <select
+                                {...form.register("role")}
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="SALES">Sales</option>
+                                <option value="FINANCE">Finance</option>
+                                <option value="OPERATIONS">Operations</option>
+                                <option value="GRAPHIC">Graphic</option>
+                                <option value="HR">HR</option>
+                                <option value="ADMIN">Admin</option>
+                                <option value="VENDOR">Vendor</option>
+                                <option value="SITE_MEDIA">Site Media</option>
+                                <option value="UNASSIGNED">Unassigned</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Department</label>
+                            <select
+                                {...form.register("department")}
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">None</option>
+                                <option value="SALES">Sales</option>
+                                <option value="OPERATIONS">Operations</option>
+                                <option value="GRAPHIC">Graphic</option>
+                                <option value="ACCOUNT">Account</option>
+                                <option value="HR">HR</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="flex justify-end pt-2">

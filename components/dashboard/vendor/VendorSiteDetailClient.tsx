@@ -49,8 +49,8 @@ type PresignedUploadItem = {
     publicUrl: string
 }
 
-const MAX_PHOTOS = 10
-const MAX_VIDEOS = 5
+const MAX_PHOTOS = 5
+const MAX_VIDEOS = 1
 const MAX_VIDEO_DURATION_SECONDS = 10
 const MAX_TOTAL_UPLOAD_BYTES = 100 * 1024 * 1024
 const MAX_VIDEO_FILE_BYTES = 50 * 1024 * 1024
@@ -239,11 +239,10 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
     }, [previewUrls])
 
     const isClientValid = useMemo(() => {
-        if (files.length === 0) return false
-        if (fileStats.photos > MAX_PHOTOS || fileStats.videos > MAX_VIDEOS) return false
+        if (fileStats.photos !== 5 || fileStats.videos !== 1) return false
         if (latitude === null || longitude === null) return false
         return true
-    }, [files.length, fileStats.photos, fileStats.videos, latitude, longitude])
+    }, [fileStats.photos, fileStats.videos, latitude, longitude])
 
     const requestCurrentPosition = (options: PositionOptions) =>
         new Promise<GeolocationPosition>((resolve, reject) => {
@@ -671,7 +670,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
         setSuccess("")
 
         if (!isClientValid) {
-            setError("Select valid media and capture location before submitting.")
+            setError("Please upload exactly 5 photos and 1 video, and acquire a GPS lock before submitting.")
             return
         }
 
@@ -758,7 +757,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
             {canUploadForStatus(assignment.status) && (
                 <form onSubmit={submitProof} className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
                     <h2 className="text-lg font-semibold text-gray-900">Upload Live Proof</h2>
-                    <p className="text-sm text-gray-600">Upload up to 10 photos and 5 videos. Location is mandatory.</p>
+                    <p className="text-sm text-gray-600">Upload exactly 5 photos and 1 video. Location is mandatory.</p>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Media Files</label>
@@ -771,7 +770,7 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                                 className="block w-full text-sm text-gray-700"
                             />
                         <p className="text-xs text-gray-500 mt-1">
-                            Selected: {fileStats.photos} photo(s), {fileStats.videos} video(s)
+                            Selected: {fileStats.photos} of 5 photo(s), {fileStats.videos} of 1 video(s)
                         </p>
                         <p className="text-xs text-amber-700 mt-1">
                             Max total upload: {formatBytes(MAX_TOTAL_UPLOAD_BYTES)}. Videos: max {formatBytes(MAX_VIDEO_FILE_BYTES)} and {MAX_VIDEO_DURATION_SECONDS}s each.
@@ -860,12 +859,22 @@ export default function VendorSiteDetailClient({ assignment }: { assignment: Ass
                     {previewUrls.length > 0 && (
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             {previewUrls.map(({ file, url }, index) => (
-                                <div key={`${file.name}-${index}`} className="border rounded-md overflow-hidden bg-gray-50">
+                                <div key={`${file.name}-${index}`} className="relative border rounded-md overflow-hidden bg-gray-50 group">
                                     {isVideoFile(file) ? (
                                         <video src={url} controls className="w-full h-28 object-cover" />
                                     ) : (
                                         <img src={url} alt={file.name} className="w-full h-28 object-cover" />
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setFiles((prev) => prev.filter((_, i) => i !== index))
+                                        }}
+                                        className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-red-600 text-white text-xs font-bold shadow-md hover:bg-red-700 transition-colors opacity-80 group-hover:opacity-100"
+                                        title="Remove this file"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
                             ))}
                         </div>

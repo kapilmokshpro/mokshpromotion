@@ -112,3 +112,48 @@ export async function sendEmail({ to, subject, html, replyTo, attachments }: Sen
         return { success: false, error, code: "NETWORK_ERROR", reason: "SEND_FAILED" } satisfies SendEmailResult
     }
 }
+
+import nodemailer from "nodemailer"
+
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true",
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+    },
+})
+
+export async function sendWorkAssignedEmail(email: string, title: string, adminName: string) {
+    const html = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaec; border-radius: 8px;">
+            <h2 style="color: #333;">New Task Assigned</h2>
+            <p style="color: #555;">Hello,</p>
+            <p style="color: #555;">You have been assigned a new task: <strong style="color: #000;">${title}</strong></p>
+            <p style="color: #555;">Assigned by: <strong>${adminName}</strong></p>
+            <p style="color: #555; margin-top: 20px;">Please log in to the Moksh Promotion portal to view the details and update the task status.</p>
+            <br/>
+            <p style="color: #777; font-size: 14px;">Best regards,<br/>Moksh Promotion Ltd.</p>
+        </div>
+    `
+
+    try {
+        await transporter.sendMail({
+            from: getPrimaryFrom(),
+            to: email,
+            subject: `New Task Assigned: ${title}`,
+            html,
+        })
+        console.log(`Task assignment email sent to ${email} via nodemailer`)
+        return { success: true }
+    } catch (error) {
+        console.error("EMAIL_SEND_ERROR_NODEMAILER", error)
+        // Fallback to resend if nodemailer fails or is not configured
+        return sendEmail({
+            to: email,
+            subject: `New Task Assigned: ${title}`,
+            html,
+        })
+    }
+}

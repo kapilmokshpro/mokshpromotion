@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
-import { ArrowLeft, Loader2, Upload } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Upload } from "lucide-react"
 
 type SiteMediaItem = {
     id: string
@@ -71,6 +71,9 @@ export default function SiteMediaUploadClient({
     const [images, setImages] = useState<File[]>([])
     const [video, setVideo] = useState<File | null>(null)
     const [submitting, setSubmitting] = useState(false)
+    const [savingView360, setSavingView360] = useState(false)
+    const [deletingMediaId, setDeletingMediaId] = useState<string | null>(null)
+    const [view360Url, setView360Url] = useState(initialSite.view360Url || "")
     const [progress, setProgress] = useState(0)
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
@@ -88,6 +91,64 @@ export default function SiteMediaUploadClient({
     const refreshSite = async () => {
         const data = await fetchJson<{ site: SiteDetails }>(`/api/site-media/sites/${siteId}`)
         setSite(data.site)
+        setView360Url(data.site.view360Url || "")
+    }
+
+    const saveView360Url = async () => {
+        setError("")
+        setSuccess("")
+        setSavingView360(true)
+
+        try {
+            const response = await fetch(`/api/site-media/sites/${siteId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ view360Url }),
+            })
+
+            if (!response.ok) {
+                throw new Error(await response.text())
+            }
+
+            const data = (await response.json()) as { site: SiteDetails }
+            setSite(data.site)
+            setView360Url(data.site.view360Url || "")
+            setSuccess("360 view link updated successfully.")
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to update 360 view link")
+        } finally {
+            setSavingView360(false)
+        }
+    }
+
+    const deleteMedia = async (media: SiteMediaItem) => {
+        const confirmed = window.confirm(`Delete "${media.fileName}" from active site media?`)
+        if (!confirmed) return
+
+        setError("")
+        setSuccess("")
+        setDeletingMediaId(media.id)
+
+        try {
+            const response = await fetch(`/api/site-media/sites/${siteId}/media/${media.id}`, {
+                method: "DELETE",
+            })
+
+            if (!response.ok) {
+                throw new Error(await response.text())
+            }
+
+            const data = (await response.json()) as { media: SiteDetails["media"] }
+            setSite((current) => ({
+                ...current,
+                media: data.media,
+            }))
+            setSuccess(`${media.type === "IMAGE" ? "Image" : "Video"} deleted successfully.`)
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to delete media")
+        } finally {
+            setDeletingMediaId(null)
+        }
     }
 
     const onImagesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,18 +157,29 @@ export default function SiteMediaUploadClient({
         setError("")
         setSuccess("")
 
-        if (nextFiles.length > MAX_IMAGES) {
+        const mergedFiles = [...images, ...nextFiles]
+
+        if (mergedFiles.length > MAX_IMAGES) {
             setError(`You can select up to ${MAX_IMAGES} images.`)
+            event.target.value = ""
             return
         }
 
-        const invalid = nextFiles.find((file) => !IMAGE_TYPES.has(file.type))
+        const invalid = mergedFiles.find((file) => !IMAGE_TYPES.has(file.type))
         if (invalid) {
             setError(`Unsupported image type: ${invalid.name}`)
+            event.target.value = ""
             return
         }
 
-        setImages(nextFiles)
+        setImages(mergedFiles)
+        event.target.value = ""
+    }
+
+    const removeImage = (indexToRemove: number) => {
+        setImages((current) => current.filter((_, index) => index !== indexToRemove))
+        setError("")
+        setSuccess("")
     }
 
     const onVideoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,31 +259,34 @@ export default function SiteMediaUploadClient({
             }
 
             let directUploadFailed = false
-            for (let index = 0; index < files.length; index += 1) {
-                try {
-                    const file = files[index]
-                    const upload = presignData.uploads[index]
+            let uploadedCount = 0
+            try {
+                await Promise.all(
+                    files.map(async (file, index) => {
+                        const upload = presignData.uploads[index]
 
-                    const putResponse = await fetch(upload.uploadUrl, {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": file.type,
-                        },
-                        body: file,
+                        const putResponse = await fetch(upload.uploadUrl, {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": file.type,
+                            },
+                            body: file,
+                        })
+
+                        if (!putResponse.ok) {
+                            throw new Error(`Failed to upload ${file.name}`)
+                        }
+
+                        uploadedCount += 1
+                        setProgress(Math.round((uploadedCount / files.length) * 100))
                     })
-
-                    if (!putResponse.ok) {
-                        throw new Error(`Failed to upload ${file.name}`)
-                    }
-
-                    setProgress(Math.round(((index + 1) / files.length) * 100))
-                } catch (uploadError) {
-                    const message = uploadError instanceof Error ? uploadError.message : "Failed to upload"
-                    const isNetworkLike = uploadError instanceof TypeError || /failed to fetch/i.test(message)
-                    if (isNetworkLike) {
-                        directUploadFailed = true
-                        break
-                    }
+                )
+            } catch (uploadError) {
+                const message = uploadError instanceof Error ? uploadError.message : "Failed to upload"
+                const isNetworkLike = uploadError instanceof TypeError || /failed to fetch/i.test(message)
+                if (isNetworkLike) {
+                    directUploadFailed = true
+                } else {
                     throw uploadError
                 }
             }
@@ -252,6 +327,7 @@ export default function SiteMediaUploadClient({
 
     const activeImages = site.media.images
     const activeVideo = site.media.videos[0] || null
+    const savedView360Url = site.view360Url?.trim() || ""
 
     return (
         <div className="space-y-6">
@@ -284,33 +360,47 @@ export default function SiteMediaUploadClient({
                     <p className="mt-1 text-sm text-gray-900">
                         {[site.locationName, site.city || site.district, site.state].filter(Boolean).join(", ")}
                     </p>
-                    <p className="mt-3 text-xs uppercase tracking-wide text-gray-500">360 View Link</p>
-                    {(() => {
-                        const isValidUrl = site.view360Url && 
-                            (site.view360Url.trim().startsWith("http://") || site.view360Url.trim().startsWith("https://"));
-                        
-                        if (isValidUrl) {
-                            return (
-                                <a href={site.view360Url!.trim()} target="_blank" rel="noreferrer" className="mt-1 block text-sm text-blue-600 hover:text-blue-800 truncate max-w-xs">
-                                    {site.view360Url}
-                                </a>
-                            );
-                        } else {
-                            const queryStr = [site.outletName, site.locationName, site.district, site.state]
-                                .filter(Boolean)
-                                .join(", ");
-                            return (
-                                <a 
-                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryStr)}`} 
-                                    target="_blank" 
-                                    rel="noreferrer" 
-                                    className="mt-1 block text-sm text-blue-600 hover:text-blue-800 underline font-medium"
+                    <div className="mt-4 space-y-2">
+                        <label htmlFor="view360Url" className="text-xs uppercase tracking-wide text-gray-500">
+                            360 View Link
+                        </label>
+                        {savedView360Url ? (
+                            <div className="rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
+                                <p className="text-xs font-medium uppercase tracking-wide text-blue-900">Current saved link</p>
+                                <a
+                                    href={savedView360Url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-1 block truncate text-sm font-semibold text-blue-700 underline hover:text-blue-900"
                                 >
-                                    Google Maps Search ↗
+                                    {savedView360Url}
                                 </a>
-                            );
-                        }
-                    })()}
+                            </div>
+                        ) : (
+                            <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                                No 360 view link saved.
+                            </div>
+                        )}
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            <input
+                                id="view360Url"
+                                type="url"
+                                value={view360Url}
+                                onChange={(event) => setView360Url(event.target.value)}
+                                placeholder="https://..."
+                                className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#002147] focus:ring-1 focus:ring-[#002147]"
+                            />
+                            <button
+                                type="button"
+                                onClick={saveView360Url}
+                                disabled={savingView360}
+                                className="inline-flex items-center justify-center rounded-md bg-[#002147] px-3 py-2 text-sm font-medium text-white hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {savingView360 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Save Link
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -325,6 +415,15 @@ export default function SiteMediaUploadClient({
                                 ) : (
                                     <div className="flex h-full items-center justify-center text-xs text-gray-400">No preview</div>
                                 )}
+                                <button
+                                    type="button"
+                                    onClick={() => deleteMedia(media)}
+                                    disabled={deletingMediaId === media.id}
+                                    className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/95 text-gray-700 shadow-sm hover:bg-white hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-70"
+                                    aria-label={`Delete ${media.fileName}`}
+                                >
+                                    {deletingMediaId === media.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                </button>
                             </div>
                         ))}
                         {activeImages.length === 0 && (
@@ -338,7 +437,18 @@ export default function SiteMediaUploadClient({
                 <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
                     <h2 className="text-sm font-semibold text-gray-900">Current Active Video ({activeVideo ? 1 : 0}/1)</h2>
                     {activeVideo?.url ? (
-                        <video controls className="w-full rounded-md border border-gray-200" src={activeVideo.url} />
+                        <div className="relative">
+                            <video controls className="w-full rounded-md border border-gray-200" src={activeVideo.url} />
+                            <button
+                                type="button"
+                                onClick={() => deleteMedia(activeVideo)}
+                                disabled={deletingMediaId === activeVideo.id}
+                                className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md bg-white/95 text-gray-700 shadow-sm hover:bg-white hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-70"
+                                aria-label={`Delete ${activeVideo.fileName}`}
+                            >
+                                {deletingMediaId === activeVideo.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </button>
+                        </div>
                     ) : (
                         <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-xs text-gray-500">
                             No active video.
@@ -351,7 +461,7 @@ export default function SiteMediaUploadClient({
                 <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
                     <div>
                         <h3 className="text-sm font-semibold text-gray-900">Upload Images</h3>
-                        <p className="text-xs text-gray-500">Allowed: JPEG, PNG, WEBP. Max 5 files.</p>
+                        <p className="text-xs text-gray-500">Allowed: JPEG, PNG, WEBP. Select all 5 together or add them in batches.</p>
                     </div>
                     <input
                         type="file"
@@ -360,10 +470,30 @@ export default function SiteMediaUploadClient({
                         onChange={onImagesChange}
                         className="block w-full text-sm"
                     />
+                    <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
+                        <span>Selected {images.length} of {MAX_IMAGES} image(s)</span>
+                        {images.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => setImages([])}
+                                className="text-blue-700 hover:text-blue-900"
+                            >
+                                Clear images
+                            </button>
+                        )}
+                    </div>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {imagePreviews.map((preview) => (
+                        {imagePreviews.map((preview, index) => (
                             <div key={preview.url} className="relative aspect-square overflow-hidden rounded-md border border-gray-200">
                                 <Image src={preview.url} alt={preview.file.name} fill className="object-cover" sizes="200px" />
+                                <button
+                                    type="button"
+                                    onClick={() => removeImage(index)}
+                                    className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/90 text-gray-700 shadow-sm hover:bg-white hover:text-red-600"
+                                    aria-label={`Remove ${preview.file.name}`}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
                             </div>
                         ))}
                     </div>

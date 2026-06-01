@@ -12,9 +12,11 @@ export default async function UsersPage() {
         orderBy: { createdAt: 'desc' },
         select: {
             id: true,
+            employeeId: true,
             name: true,
             email: true,
             role: true,
+            department: true,
             createdAt: true
         }
     })

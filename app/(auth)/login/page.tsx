@@ -100,8 +100,17 @@ function LoginForm() {
                     case "SITE_MEDIA":
                         targetUrl = "/dashboard/site-media"
                         break
-                    default:
+                    case "GRAPHIC":
                         targetUrl = "/dashboard/sales"
+                        break
+                    case "HR":
+                        targetUrl = "/dashboard/admin"
+                        break
+                    case "UNASSIGNED":
+                        targetUrl = "/dashboard"
+                        break
+                    default:
+                        targetUrl = "/dashboard"
                 }
             }
 

@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { PageHeader, StatCard } from "@/components/dashboard/DashboardComponents"
 import { CheckCircle2, Clock3, AlertTriangle, Upload } from "lucide-react"
+import VendorSitesClient from "@/components/dashboard/vendor/VendorSitesClient"
+import { serializeDecimal } from "@/lib/utils"
 
 export default async function VendorDashboardPage() {
     const session = await getServerSession(authOptions)
@@ -16,7 +18,8 @@ export default async function VendorDashboardPage() {
         pendingUpload,
         submitted,
         approved,
-        reuploadRequested
+        reuploadRequested,
+        assignments
     ] = await Promise.all([
         db.vendorSiteAssignment.count({ where: { vendorId } }),
         db.vendorSiteAssignment.count({
@@ -28,6 +31,37 @@ export default async function VendorDashboardPage() {
         db.vendorSiteAssignment.count({ where: { vendorId, status: "SUBMITTED_FOR_APPROVAL" } }),
         db.vendorSiteAssignment.count({ where: { vendorId, status: { in: ["APPROVED", "CLIENT_NOTIFIED"] } } }),
         db.vendorSiteAssignment.count({ where: { vendorId, status: "REUPLOAD_REQUESTED" } }),
+        db.vendorSiteAssignment.findMany({
+            where: { vendorId },
+            orderBy: { createdAt: "desc" },
+            include: {
+                inventoryHoarding: {
+                    select: {
+                        inventoryCode: true,
+                        outletName: true,
+                        locationName: true,
+                        city: true,
+                        district: true,
+                        state: true,
+                    }
+                },
+                lead: {
+                    select: {
+                        customerName: true,
+                    }
+                },
+                proofs: {
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                    select: {
+                        id: true,
+                        status: true,
+                        submittedAt: true,
+                        rejectionReason: true,
+                    }
+                }
+            }
+        })
     ])
 
     return (
@@ -43,6 +77,10 @@ export default async function VendorDashboardPage() {
                 <StatCard title="Under Review" value={submitted} icon={<Upload className="w-5 h-5" />} />
                 <StatCard title="Approved" value={approved} icon={<CheckCircle2 className="w-5 h-5" />} />
                 <StatCard title="Re-upload Needed" value={reuploadRequested} icon={<AlertTriangle className="w-5 h-5" />} />
+            </div>
+
+            <div className="border-t border-gray-100 pt-6">
+                <VendorSitesClient assignments={serializeDecimal(assignments) as any} />
             </div>
         </div>
     )

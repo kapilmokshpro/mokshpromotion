@@ -28,7 +28,9 @@ const createUserWithRecovery = async (data: {
     name: string
     email: string
     password: string
-    role: "ADMIN" | "SALES" | "FINANCE" | "OPERATIONS" | "VENDOR" | "SITE_MEDIA"
+    role: "ADMIN" | "SALES" | "FINANCE" | "OPERATIONS" | "GRAPHIC" | "HR" | "VENDOR" | "SITE_MEDIA" | "UNASSIGNED"
+    department?: string | null
+    employeeId?: string | null
 }) => {
     try {
         return await db.user.create({ data })
@@ -82,11 +84,15 @@ export async function POST(req: Request) {
             return new NextResponse("User already exists", { status: 409 })
         }
 
+        const { department, employeeId } = parsed.data
+
         const user = await createUserWithRecovery({
             name,
             email,
             password: hashedPassword,
             role: role || "SALES",
+            department: department || null,
+            employeeId: employeeId || null,
         })
 
         // Remove password from response
@@ -127,9 +133,11 @@ export async function GET() {
             orderBy: { createdAt: 'desc' },
             select: {
                 id: true,
+                employeeId: true,
                 name: true,
                 email: true,
                 role: true,
+                department: true,
                 createdAt: true
             }
         })

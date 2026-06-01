@@ -44,6 +44,8 @@ export const authOptions: NextAuthOptions = {
                     name: user.name,
                     email: user.email,
                     role: user.role,
+                    department: user.department || undefined,
+                    employeeId: user.employeeId || undefined,
                 }
             }
         })
@@ -53,6 +55,13 @@ export const authOptions: NextAuthOptions = {
             if (user) {
                 token.id = user.id
                 token.role = user.role
+                token.department = (user as any).department
+                token.employeeId = (user as any).employeeId
+            }
+
+            if (trigger === "update" && (session?.name || session?.email)) {
+                if (session.name) token.name = session.name
+                if (session.email) token.email = session.email
             }
 
             // Handle Impersonation
@@ -105,6 +114,8 @@ export const authOptions: NextAuthOptions = {
                 session.user.id = token.id
                 session.user.role = token.role
                 session.user.originalUserId = token.originalUserId
+                session.user.department = token.department as string | undefined
+                session.user.employeeId = token.employeeId as string | undefined
             }
             return session
         }

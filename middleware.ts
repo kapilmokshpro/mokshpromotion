@@ -12,6 +12,11 @@ export default withAuth(
             return
         }
 
+        // UNASSIGNED users can only see the generic dashboard
+        if (role === "UNASSIGNED" && path !== "/dashboard") {
+            return NextResponse.redirect(new URL("/dashboard", req.url))
+        }
+
         if (role === "SITE_MEDIA" && path !== "/dashboard" && !path.startsWith("/dashboard/site-media")) {
             return NextResponse.redirect(new URL("/dashboard/site-media", req.url))
         }
@@ -20,7 +25,7 @@ export default withAuth(
             return NextResponse.redirect(new URL("/dashboard", req.url))
         }
 
-        if (path.startsWith("/dashboard/sales") && !["SALES", "ADMIN", "SUPER_ADMIN", "FINANCE", "OPERATIONS"].includes(role || "")) {
+        if (path.startsWith("/dashboard/sales") && !["SALES", "GRAPHIC", "ADMIN", "SUPER_ADMIN", "FINANCE", "OPERATIONS"].includes(role || "")) {
             return NextResponse.redirect(new URL("/dashboard", req.url))
         }
 

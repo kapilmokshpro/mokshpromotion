@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
+import EditUserModal from "@/components/dashboard/EditUserModal"
 import {
     LayoutDashboard,
     Users,
@@ -32,6 +33,8 @@ interface SidebarProps {
 
 export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
     const pathname = usePathname()
+    const { data: session } = useSession()
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
 
     const overviewHref = role === "SUPER_ADMIN" ? "/dashboard/super-admin" :
                          role === "ADMIN" ? "/dashboard/admin" :
@@ -55,13 +58,6 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
             icon: Image,
             active: pathname.includes("/dashboard/site-media"),
             roles: ["SITE_MEDIA", "ADMIN"]
-        },
-        {
-            label: "Vendor Overview",
-            href: "/dashboard/vendor",
-            icon: Truck,
-            active: pathname === "/dashboard/vendor",
-            roles: ["VENDOR"]
         },
         {
             label: "My Sites",
@@ -118,6 +114,13 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
             icon: Truck,
             active: pathname.includes("/dashboard/operations"),
             roles: ["ADMIN", "OPERATIONS"]
+        },
+        {
+            label: "Assign Work",
+            href: "/dashboard/assign-work",
+            icon: ClipboardList,
+            active: pathname.includes("/dashboard/assign-work"),
+            roles: ["ADMIN", "SUPER_ADMIN", "SALES", "FINANCE", "OPERATIONS", "VENDOR", "SITE_MEDIA"]
         },
         {
             label: "Inventory",
@@ -209,14 +212,25 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
                 </div>
 
                 {/* User Info Snippet */}
-                <div className="p-4 mx-4 mt-4 mb-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
-                        {role?.charAt(0) || "U"}
+                <div 
+                    onClick={() => {
+                        if (session?.user) {
+                            setIsProfileModalOpen(true);
+                        }
+                    }}
+                    className="p-4 mx-4 mt-4 mb-2 bg-gray-50 hover:bg-gray-100 active:scale-[0.98] transition-all rounded-xl border border-gray-100 flex items-center justify-between gap-3 cursor-pointer group"
+                    title="Click to edit profile"
+                >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-9 h-9 rounded-full bg-blue-100 group-hover:bg-blue-200 transition-colors flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                            {(session?.user?.name || role)?.charAt(0) || "U"}
+                        </div>
+                        <div className="overflow-hidden">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{session?.user?.name || "Current User"}</p>
+                            <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider">{role || "Guest"}</p>
+                        </div>
                     </div>
-                    <div className="overflow-hidden">
-                        <p className="text-sm font-semibold text-gray-900 truncate">Current User</p>
-                        <p className="text-xs text-blue-600 font-medium">{role || "Guest"}</p>
-                    </div>
+                    <Settings className="w-4 h-4 text-gray-400 group-hover:text-blue-600 group-hover:rotate-45 transition-all duration-300" />
                 </div>
 
                 {/* Navigation */}
@@ -254,6 +268,21 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
                     </Link>
                 </div>
             </aside>
+
+            {isProfileModalOpen && session?.user && (
+                <EditUserModal
+                    user={{
+                        id: parseInt(session.user.id),
+                        name: session.user.name || "",
+                        email: session.user.email || "",
+                        role: session.user.role || "",
+                        department: (session.user as any).department || null,
+                        employeeId: (session.user as any).employeeId || null,
+                    }}
+                    isSelfEdit={true}
+                    onClose={() => setIsProfileModalOpen(false)}
+                />
+            )}
         </>
     )
 }

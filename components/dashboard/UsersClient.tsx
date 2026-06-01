@@ -8,10 +8,33 @@ import { useRouter } from "next/navigation"
 
 type UserRow = {
     id: number
+    employeeId: string | null
     name: string
     email: string
     role: string
+    department: string | null
     createdAt: string | Date
+}
+
+const ROLE_COLORS: Record<string, string> = {
+    SUPER_ADMIN: 'bg-red-100 text-red-800',
+    ADMIN: 'bg-purple-100 text-purple-800',
+    SALES: 'bg-blue-100 text-blue-800',
+    FINANCE: 'bg-green-100 text-green-800',
+    OPERATIONS: 'bg-orange-100 text-orange-800',
+    GRAPHIC: 'bg-pink-100 text-pink-800',
+    HR: 'bg-teal-100 text-teal-800',
+    VENDOR: 'bg-amber-100 text-amber-800',
+    SITE_MEDIA: 'bg-cyan-100 text-cyan-800',
+    UNASSIGNED: 'bg-gray-100 text-gray-500',
+}
+
+const DEPT_COLORS: Record<string, string> = {
+    SALES: 'bg-blue-50 text-blue-700 border border-blue-200',
+    OPERATIONS: 'bg-orange-50 text-orange-700 border border-orange-200',
+    GRAPHIC: 'bg-pink-50 text-pink-700 border border-pink-200',
+    ACCOUNT: 'bg-green-50 text-green-700 border border-green-200',
+    HR: 'bg-teal-50 text-teal-700 border border-teal-200',
 }
 
 export default function UsersPage({
@@ -28,8 +51,13 @@ export default function UsersPage({
     const [editingUser, setEditingUser] = useState<UserRow | null>(null)
     const [deletingId, setDeletingId] = useState<number | null>(null)
     const [actionError, setActionError] = useState("")
+    const [filterDept, setFilterDept] = useState<string>("ALL")
 
     const canManageSuperAdmin = currentUserRole === "SUPER_ADMIN"
+
+    const filteredUsers = filterDept === "ALL"
+        ? users
+        : users.filter(u => u.department === filterDept)
 
     async function handleDelete(user: UserRow) {
         const isSelf = user.id === currentUserId
@@ -70,12 +98,26 @@ export default function UsersPage({
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900">User Management</h1>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-                >
-                    + Add User
-                </button>
+                <div className="flex items-center gap-3">
+                    <select
+                        value={filterDept}
+                        onChange={(e) => setFilterDept(e.target.value)}
+                        className="text-sm border border-gray-300 rounded-md px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="ALL">All Departments</option>
+                        <option value="SALES">Sales</option>
+                        <option value="OPERATIONS">Operations</option>
+                        <option value="GRAPHIC">Graphic</option>
+                        <option value="ACCOUNT">Account</option>
+                        <option value="HR">HR</option>
+                    </select>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+                    >
+                        + Add User
+                    </button>
+                </div>
             </div>
 
             {actionError && (
@@ -84,20 +126,30 @@ export default function UsersPage({
                 </div>
             )}
 
+            {/* Mobile cards */}
             <div className="md:hidden space-y-3">
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                     <div key={user.id} className="bg-white shadow rounded-lg border border-gray-200 p-4 space-y-2">
-                        <div className="text-sm font-semibold text-gray-900">{user.name}</div>
+                        <div className="flex items-center gap-2">
+                            {user.employeeId && (
+                                <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                                    {user.employeeId}
+                                </span>
+                            )}
+                            <span className="text-sm font-semibold text-gray-900">{user.name}</span>
+                        </div>
                         <div className="text-xs text-gray-500 break-all">{user.email}</div>
-                        <div className="flex items-center justify-between">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
-                                    user.role === 'SALES' ? 'bg-blue-100 text-blue-800' :
-                                    user.role === 'SITE_MEDIA' ? 'bg-cyan-100 text-cyan-800' :
-                                    user.role === 'VENDOR' ? 'bg-amber-100 text-amber-800' :
-                                    'bg-gray-100 text-gray-800'}`}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ROLE_COLORS[user.role] || 'bg-gray-100 text-gray-800'}`}>
                                 {user.role}
                             </span>
+                            {user.department && (
+                                <span className={`px-2 inline-flex text-xs leading-5 font-medium rounded-full ${DEPT_COLORS[user.department] || 'bg-gray-50 text-gray-600'}`}>
+                                    {user.department}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-500">{formatDateInIndia(user.createdAt)}</span>
                         </div>
                         <div className="flex items-center gap-3 pt-1">
@@ -123,41 +175,57 @@ export default function UsersPage({
                 ))}
             </div>
 
+            {/* Desktop table */}
             <div className="hidden md:block bg-white shadow rounded-lg overflow-hidden border border-gray-200">
                 <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emp ID</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map((user) => (
+                        {filteredUsers.map((user) => (
                             <tr key={user.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    {user.employeeId ? (
+                                        <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                            {user.employeeId}
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-gray-400">—</span>
+                                    )}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap">
                                     <div className="text-sm font-medium text-gray-900">{user.name}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                                <td className="px-4 py-4 whitespace-nowrap">
                                     <div className="text-sm text-gray-500">{user.email}</div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
-                                            user.role === 'SALES' ? 'bg-blue-100 text-blue-800' :
-                                            user.role === 'SITE_MEDIA' ? 'bg-cyan-100 text-cyan-800' :
-                                            user.role === 'VENDOR' ? 'bg-amber-100 text-amber-800' :
-                                                'bg-gray-100 text-gray-800'}`}>
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ROLE_COLORS[user.role] || 'bg-gray-100 text-gray-800'}`}>
                                         {user.role}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-4 py-4 whitespace-nowrap">
+                                    {user.department ? (
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-medium rounded-full ${DEPT_COLORS[user.department] || 'bg-gray-50 text-gray-600'}`}>
+                                            {user.department}
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-gray-400">—</span>
+                                    )}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {formatDateInIndia(user.createdAt)}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                <td className="px-4 py-4 whitespace-nowrap text-right text-sm">
                                     <div className="flex items-center justify-end gap-3">
                                         <button
                                             onClick={() => {

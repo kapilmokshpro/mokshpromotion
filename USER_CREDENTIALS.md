@@ -175,6 +175,28 @@ Password: ops123
 
 ---
 
+## 🏢 MPL DEPARTMENT USERS (NEW)
+
+**Default Password for all MPL users**: `Moksh@123`
+
+### Department Admins (Role: ADMIN)
+- Sales Admin: `sales.admin@mokshpromotion.com` (MPL-SA)
+- Operations Admin: `ops.admin@mokshpromotion.com` (MPL-OA)
+- Graphic Admin: `graphic.admin@mokshpromotion.com` (MPL-GA)
+- Account Admin: `account.admin@mokshpromotion.com` (MPL-AA)
+- HR Admin: `hr.admin@mokshpromotion.com` (MPL-HA)
+
+### Department Users
+- Sales: `mpl001@mokshpromotion.com` to `mpl010@mokshpromotion.com` (Role: SALES)
+- Operations: `mpl011@mokshpromotion.com` to `mpl018@mokshpromotion.com` (Role: OPERATIONS)
+- Graphic: `mpl019@mokshpromotion.com` to `mpl022@mokshpromotion.com` (Role: GRAPHIC)
+- Account: `mpl023@mokshpromotion.com` to `mpl024@mokshpromotion.com` (Role: FINANCE)
+- HR: `mpl025@mokshpromotion.com` to `mpl026@mokshpromotion.com` (Role: HR)
+- HR Admins: `mpl027@mokshpromotion.com` to `mpl028@mokshpromotion.com` (Role: ADMIN, Dept: HR)
+- Unassigned: `mpl029@mokshpromotion.com` to `mpl030@mokshpromotion.com` (Role: UNASSIGNED)
+
+---
+
 ## 📝 NOTES
 
 - All passwords are stored as bcrypt hashes in the database

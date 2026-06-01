@@ -7,24 +7,30 @@ import { userUpdateSchema } from "@/lib/schemas"
 import { z } from "zod"
 import { X } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 type UserFormValues = z.infer<typeof userUpdateSchema>
 
 type EditableUser = {
     id: number
+    employeeId?: string | null
     name: string
     email: string
     role: string
+    department?: string | null
 }
 
 export default function EditUserModal({
     user,
+    isSelfEdit = false,
     onClose,
 }: {
     user: EditableUser
+    isSelfEdit?: boolean
     onClose: () => void
 }) {
     const router = useRouter()
+    const { update } = useSession()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
 
@@ -34,7 +40,9 @@ export default function EditUserModal({
             name: user.name || "",
             email: user.email || "",
             role: (user.role as UserFormValues["role"]) || "SALES",
+            department: (user.department as UserFormValues["department"]) || undefined,
             password: "",
+            currentPassword: "",
         }
     })
 
@@ -52,6 +60,13 @@ export default function EditUserModal({
             if (!res.ok) {
                 const text = await res.text()
                 throw new Error(text || "Failed to update user")
+            }
+
+            if (isSelfEdit) {
+                await update({
+                    name: data.name,
+                    email: data.email,
+                })
             }
 
             router.refresh()
@@ -75,6 +90,13 @@ export default function EditUserModal({
                 </button>
 
                 <h2 className="text-xl font-bold mb-4 text-gray-900">Edit User</h2>
+
+                {user.employeeId && (
+                    <div className="mb-4 flex items-center gap-2">
+                        <span className="text-xs text-gray-500">Employee ID:</span>
+                        <span className="text-sm font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">{user.employeeId}</span>
+                    </div>
+                )}
 
                 {error && (
                     <div className="bg-red-50 text-red-600 text-sm p-3 rounded mb-4">
@@ -104,20 +126,60 @@ export default function EditUserModal({
                         {form.formState.errors.email && <p className="text-red-500 text-xs mt-1">{form.formState.errors.email.message}</p>}
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Role</label>
-                        <select
-                            {...form.register("role")}
-                            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="SALES">Sales</option>
-                            <option value="FINANCE">Finance</option>
-                            <option value="OPERATIONS">Operations</option>
-                            <option value="ADMIN">Admin</option>
-                            <option value="VENDOR">Vendor</option>
-                            <option value="SITE_MEDIA">Site Media</option>
-                        </select>
-                    </div>
+                    {!isSelfEdit ? (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Role</label>
+                                <select
+                                    {...form.register("role")}
+                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="SALES">Sales</option>
+                                    <option value="FINANCE">Finance</option>
+                                    <option value="OPERATIONS">Operations</option>
+                                    <option value="GRAPHIC">Graphic</option>
+                                    <option value="HR">HR</option>
+                                    <option value="ADMIN">Admin</option>
+                                    <option value="VENDOR">Vendor</option>
+                                    <option value="SITE_MEDIA">Site Media</option>
+                                    <option value="UNASSIGNED">Unassigned</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Department</label>
+                                <select
+                                    {...form.register("department")}
+                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">None</option>
+                                    <option value="SALES">Sales</option>
+                                    <option value="OPERATIONS">Operations</option>
+                                    <option value="GRAPHIC">Graphic</option>
+                                    <option value="ACCOUNT">Account</option>
+                                    <option value="HR">HR</option>
+                                </select>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <input type="hidden" {...form.register("role")} />
+                            <input type="hidden" {...form.register("department")} />
+                        </>
+                    )}
+
+                    {isSelfEdit && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Current Password <span className="text-red-500">*</span></label>
+                            <input
+                                {...form.register("currentPassword")}
+                                type="password"
+                                required
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter current password to authorize changes"
+                            />
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">New Password (optional)</label>

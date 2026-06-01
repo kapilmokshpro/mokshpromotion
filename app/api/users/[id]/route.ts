@@ -19,12 +19,13 @@ const sanitizeUpdateBody = (body: any) => ({
     email: typeof body?.email === "string" ? body.email.trim().toLowerCase() : body?.email,
     name: typeof body?.name === "string" ? body.name.trim() : body?.name,
     password: typeof body?.password === "string" ? body.password : "",
+    currentPassword: typeof body?.currentPassword === "string" ? body.currentPassword : "",
 })
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
     try {
         const session = await getServerSession(authOptions)
-        if (!session || !canManageUsers(session.user.role)) {
+        if (!session) {
             return new NextResponse("Unauthorized", { status: 401 })
         }
 
@@ -33,16 +34,21 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             return new NextResponse("Invalid user id", { status: 400 })
         }
 
+        const isSelf = Number(session.user.id) === userId
+        if (!isSelf && !canManageUsers(session.user.role)) {
+            return new NextResponse("Unauthorized", { status: 401 })
+        }
+
         const targetUser = await db.user.findUnique({
             where: { id: userId },
-            select: { id: true, role: true }
+            select: { id: true, role: true, department: true }
         })
 
         if (!targetUser) {
             return new NextResponse("User not found", { status: 404 })
         }
 
-        if (targetUser.role === "SUPER_ADMIN" && !isSuperAdmin(session.user.role)) {
+        if (targetUser.role === "SUPER_ADMIN" && !isSuperAdmin(session.user.role) && !isSelf) {
             return new NextResponse("Only SUPER_ADMIN can modify SUPER_ADMIN accounts", { status: 403 })
         }
 
@@ -52,7 +58,24 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             return new NextResponse(parsed.error.issues[0]?.message || "Invalid request data", { status: 400 })
         }
 
-        const { name, email, role, password } = parsed.data
+        const { name, email, role, password, department, currentPassword } = parsed.data
+
+        if (isSelf) {
+            if (!currentPassword) {
+                return new NextResponse("Current password is required to update profile", { status: 400 })
+            }
+            const dbUserForPass = await db.user.findUnique({
+                where: { id: userId },
+                select: { password: true }
+            })
+            if (!dbUserForPass) {
+                return new NextResponse("User not found", { status: 404 })
+            }
+            const isMatch = await bcrypt.compare(currentPassword, dbUserForPass.password)
+            if (!isMatch) {
+                return new NextResponse("Incorrect current password", { status: 400 })
+            }
+        }
 
         const emailTakenByAnotherUser = await db.user.findFirst({
             where: {
@@ -69,7 +92,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         const updateData: Prisma.UserUpdateInput = {
             name,
             email,
-            role,
+        }
+
+        // Only allow role/department changes if the user can manage users
+        if (canManageUsers(session.user.role)) {
+            updateData.role = role
+            updateData.department = department || null
+        } else {
+            updateData.role = targetUser.role
+            updateData.department = targetUser.department
         }
 
         if (password) {
@@ -81,9 +112,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             data: updateData,
             select: {
                 id: true,
+                employeeId: true,
                 name: true,
                 email: true,
                 role: true,
+                department: true,
                 createdAt: true
             }
         })
