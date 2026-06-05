@@ -38,8 +38,20 @@ interface InventoryItem {
     availabilityStatus?: string;
 }
 
+interface StateSummary {
+    state: string;
+    count: number;
+}
+
+interface DistrictSummary {
+    district: string;
+    count: number;
+}
+
 interface InventoryListProps {
     inventory: InventoryItem[];
+    statesList?: StateSummary[];
+    districtsList?: DistrictSummary[];
 }
 
 type ViewState = "STATES" | "DISTRICTS" | "ITEMS";
@@ -53,7 +65,7 @@ function toTitleCase(str: string) {
         .join(" ");
 }
 
-export default function InventoryList({ inventory }: InventoryListProps) {
+export default function InventoryList({ inventory, statesList, districtsList }: InventoryListProps) {
     const { toggleCartItem, isInCart, addToCart, removeFromCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -83,16 +95,23 @@ export default function InventoryList({ inventory }: InventoryListProps) {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     const uniqueStates = useMemo(() => {
+        if (statesList) return statesList.map(s => toTitleCase(s.state)).sort();
         const states = new Set(availableInventory.map((item) => item.state).filter(Boolean));
         return Array.from(states).sort();
-    }, [availableInventory]);
+    }, [availableInventory, statesList]);
 
     const filteredStates = useMemo(() => {
+        if (statesList) {
+            const list = statesList.map(s => toTitleCase(s.state)).sort();
+            if (!normalizedQuery) return list;
+            return list.filter((state) => state.toLowerCase().includes(normalizedQuery));
+        }
         if (!normalizedQuery) return uniqueStates;
         return uniqueStates.filter((state) => state.toLowerCase().includes(normalizedQuery));
-    }, [uniqueStates, normalizedQuery]);
+    }, [uniqueStates, normalizedQuery, statesList]);
 
     const uniqueDistricts = useMemo(() => {
+        if (districtsList) return districtsList.map(d => toTitleCase(d.district)).sort();
         if (!selectedState) return [];
         const districts = new Set(
             availableInventory
@@ -101,12 +120,17 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                 .filter(Boolean)
         );
         return Array.from(districts).sort();
-    }, [availableInventory, selectedState]);
+    }, [availableInventory, selectedState, districtsList]);
 
     const filteredDistricts = useMemo(() => {
+        if (districtsList) {
+            const list = districtsList.map(d => toTitleCase(d.district)).sort();
+            if (!normalizedQuery) return list;
+            return list.filter((district) => district.toLowerCase().includes(normalizedQuery));
+        }
         if (!normalizedQuery) return uniqueDistricts;
         return uniqueDistricts.filter((district) => district.toLowerCase().includes(normalizedQuery));
-    }, [uniqueDistricts, normalizedQuery]);
+    }, [uniqueDistricts, normalizedQuery, districtsList]);
 
     const filteredInventory = useMemo(() => {
         const scopedItems = availableInventory.filter(
@@ -137,9 +161,20 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                 ? `Search district in ${selectedState || "selected state"}...`
                 : "Search outlet, location, district, or state...";
 
-    const getStateCount = (state: string) => availableInventory.filter((i) => i.state === state).length;
-    const getDistrictCount = (state: string, district: string) =>
-        availableInventory.filter((i) => i.state === state && i.district === district).length;
+    const getStateCount = (stateName: string) => {
+        if (statesList) {
+            const found = statesList.find((s) => toTitleCase(s.state) === toTitleCase(stateName));
+            return found ? found.count : 0;
+        }
+        return availableInventory.filter((i) => i.state === stateName).length;
+    };
+    const getDistrictCount = (stateName: string, districtName: string) => {
+        if (districtsList) {
+            const found = districtsList.find((d) => toTitleCase(d.district) === toTitleCase(districtName));
+            return found ? found.count : 0;
+        }
+        return availableInventory.filter((i) => i.state === stateName && i.district === districtName).length;
+    };
 
     const handleStateSelect = (state: string) => {
         router.push(`/petrolpump-media/${encodeURIComponent(state)}`);
@@ -308,7 +343,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                 onClick={() => handleStateSelect(state)} 
                                 className="cursor-pointer hover:shadow-lg transition-all group bg-white relative overflow-hidden"
                             >
-                                {stateItems.length > 0 && (
+                                {!statesList && stateItems.length > 0 && (
                                     <div 
                                         className="absolute top-3 right-3 z-10 no-modal-trigger"
                                         onClick={(e) => handleToggleState(state, e)}
