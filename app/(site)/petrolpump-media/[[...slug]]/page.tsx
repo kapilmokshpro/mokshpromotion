@@ -2,32 +2,35 @@ import { db } from "@/lib/db"
 import CartFooter from "@/components/CartFooter"
 import InventoryList from "@/components/InventoryList"
 import { resolveSiteMediaUrl } from "@/lib/site-media"
+import { unstable_cache } from "next/cache"
 
 export const dynamic = "force-dynamic"
 
-export default async function PetrolPumpMediaPage() {
-    // Fetch Inventory Data - Filtered to AVAILABLE only
-    // Update: Hide if bookingEndDate >= Today (Active or Upcoming booking exists)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-
-    let inventory: any[] = []
-    let dbUnavailable = false
-
-    try {
-        inventory = await (db.inventoryHoarding.findMany as any)({
-            where: {
-                isActive: true, // Only show active items
-                // Logic: Not Exists a LeadItem where bookingEndDate >= Today
-                leadItems: {
-                    none: {
-                        bookingEndDate: {
-                            not: null, // Ensure not null
-                            gte: today // Current or Future booking (covers Active and Upcoming)
-                        }
+const getCachedInventory = (stateFilter: string | undefined, districtFilter: string | undefined, dateStr: string) => unstable_cache(
+    async () => {
+        const today = new Date(dateStr)
+        const whereClause: any = {
+            isActive: true, // Only show active items
+            // Logic: Not Exists a LeadItem where bookingEndDate >= Today
+            leadItems: {
+                none: {
+                    bookingEndDate: {
+                        not: null, // Ensure not null
+                        gte: today // Current or Future booking (covers Active and Upcoming)
                     }
                 }
-            },
+            }
+        }
+
+        if (stateFilter) {
+            whereClause.state = { equals: stateFilter, mode: 'insensitive' }
+        }
+        if (districtFilter) {
+            whereClause.district = { equals: districtFilter, mode: 'insensitive' }
+        }
+
+        return await (db.inventoryHoarding.findMany as any)({
+            where: whereClause,
             select: {
                 id: true,
                 inventoryCode: true,
@@ -69,63 +72,89 @@ export default async function PetrolPumpMediaPage() {
                 createdAt: 'desc'
             }
         })
-    } catch (error) {
-        console.error("Public inventory fetch failed:", error)
+    },
+    [`inventory-public-${stateFilter || 'all'}-${districtFilter || 'all'}-${dateStr}`],
+    {
+        revalidate: 60, // 60 seconds cache
+        tags: ['inventory-public-all']
+    }
+)
 
-        const isSchemaMismatch =
-            typeof error === "object" &&
-            error !== null &&
-            "code" in error &&
-            (error as { code?: string }).code === "P2022"
+export default async function PetrolPumpMediaPage({ params }: { params: { slug?: string[] } }) {
+    // Fetch Inventory Data - Filtered to AVAILABLE only
+    // Update: Hide if bookingEndDate >= Today (Active or Upcoming booking exists)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    const dateStr = today.toISOString().split('T')[0];
 
-        if (isSchemaMismatch) {
-            try {
-                inventory = await (db.inventoryHoarding.findMany as any)({
-                    where: {
-                        isActive: true,
-                        leadItems: {
-                            none: {
-                                bookingEndDate: {
-                                    not: null,
-                                    gte: today
-                                }
+    const stateFilter = params.slug?.[0] ? decodeURIComponent(params.slug[0]) : undefined;
+    const districtFilter = params.slug?.[1] ? decodeURIComponent(params.slug[1]) : undefined;
+
+    let inventory: any[] = []
+    let dbUnavailable = false
+
+    try {
+        if (!stateFilter) {
+            // Fetch directly from db without cache for root page to avoid Next.js 2MB cache size limit
+            inventory = await (db.inventoryHoarding.findMany as any)({
+                where: {
+                    isActive: true,
+                    leadItems: {
+                        none: {
+                            bookingEndDate: {
+                                not: null,
+                                gte: today
                             }
                         }
-                    },
-                    select: {
-                        id: true,
-                        inventoryCode: true,
-                        outletName: true,
-                        locationName: true,
-                        state: true,
-                        district: true,
-                        widthFt: true,
-                        heightFt: true,
-                        width: true,
-                        height: true,
-                        ratePerSqft: true,
-                        discountedRate: true,
-                        rate: true,
-                        areaType: true,
-                        totalArea: true,
-                        areaSqft: true,
-                        printingCharge: true,
-                        installationCharge: true,
-                        netTotal: true,
-                        availabilityStatus: true,
-                        imageUrl: true,
-                    },
-                    orderBy: {
-                        createdAt: "desc"
                     }
-                })
-            } catch (fallbackError) {
-                dbUnavailable = true
-                console.error("Public inventory fallback fetch failed:", fallbackError)
-            }
+                },
+                select: {
+                    id: true,
+                    inventoryCode: true,
+                    outletName: true,
+                    locationName: true,
+                    state: true,
+                    district: true,
+                    widthFt: true,
+                    heightFt: true,
+                    width: true,
+                    height: true,
+                    ratePerSqft: true,
+                    discountedRate: true,
+                    rate: true,
+                    areaType: true,
+                    totalArea: true,
+                    areaSqft: true,
+                    printingCharge: true,
+                    installationCharge: true,
+                    netTotal: true,
+                    availabilityStatus: true,
+                    imageUrl: true,
+                    view360Url: true,
+                    siteMedia: {
+                        where: { isActive: true },
+                        orderBy: [
+                            { type: "asc" },
+                            { sortOrder: "asc" },
+                            { createdAt: "asc" },
+                        ],
+                        select: {
+                            type: true,
+                            key: true,
+                            url: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            })
         } else {
-            dbUnavailable = true
+            inventory = await getCachedInventory(stateFilter, districtFilter, dateStr)()
         }
+    } catch (error) {
+        console.error("Public inventory fetch failed:", error)
+        dbUnavailable = true
     }
 
     const getSiteSignatureKey = (item: any) => {

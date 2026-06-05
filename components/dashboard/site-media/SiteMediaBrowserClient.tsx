@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Search } from "lucide-react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 
 type StateRow = {
     state: string
@@ -42,9 +43,28 @@ export default function SiteMediaBrowserClient() {
     const [districts, setDistricts] = useState<DistrictRow[]>([])
     const [sites, setSites] = useState<SiteRow[]>([])
 
-    const [selectedState, setSelectedState] = useState("")
-    const [selectedDistrict, setSelectedDistrict] = useState("")
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    const pathname = usePathname()
+
+    const selectedState = searchParams.get("state") || ""
+    const selectedDistrict = searchParams.get("district") || ""
     const [searchQuery, setSearchQuery] = useState("")
+
+    const updateNavigation = (state: string, district: string) => {
+        const params = new URLSearchParams(searchParams.toString())
+        if (state) {
+            params.set("state", state)
+        } else {
+            params.delete("state")
+        }
+        if (district) {
+            params.set("district", district)
+        } else {
+            params.delete("district")
+        }
+        router.push(`${pathname}?${params.toString()}`)
+    }
 
     const [loadingStates, setLoadingStates] = useState(true)
     const [loadingDistricts, setLoadingDistricts] = useState(false)
@@ -171,11 +191,10 @@ export default function SiteMediaBrowserClient() {
                             type="button"
                             onClick={() => {
                                 if (selectedDistrict) {
-                                    setSelectedDistrict("")
+                                    updateNavigation(selectedState, "")
                                     setSearchQuery("")
                                 } else {
-                                    setSelectedState("")
-                                    setSelectedDistrict("")
+                                    updateNavigation("", "")
                                     setSearchQuery("")
                                 }
                             }}
@@ -200,8 +219,7 @@ export default function SiteMediaBrowserClient() {
                             key={item.state}
                             type="button"
                             onClick={() => {
-                                setSelectedState(item.state)
-                                setSelectedDistrict("")
+                                updateNavigation(item.state, "")
                                 setSearchQuery("")
                             }}
                             className="rounded-lg border border-gray-200 bg-white p-4 text-left hover:border-blue-300 hover:bg-blue-50"
@@ -230,7 +248,7 @@ export default function SiteMediaBrowserClient() {
                             key={item.district}
                             type="button"
                             onClick={() => {
-                                setSelectedDistrict(item.district)
+                                updateNavigation(selectedState, item.district)
                                 setSearchQuery("")
                             }}
                             className="rounded-lg border border-gray-200 bg-white p-4 text-left hover:border-blue-300 hover:bg-blue-50"

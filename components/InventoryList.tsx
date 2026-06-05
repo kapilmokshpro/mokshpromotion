@@ -10,6 +10,7 @@ import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map, Se
 import { useCart } from "@/context/CartContext";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useParams, useRouter } from "next/navigation";
 
 interface InventoryItem {
     id: number;
@@ -66,9 +67,19 @@ export default function InventoryList({ inventory }: InventoryListProps) {
         }));
     }, [inventory]);
 
-    const [viewState, setViewState] = useState<ViewState>("STATES");
-    const [selectedState, setSelectedState] = useState<string | null>(null);
-    const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+    const params = useParams();
+    const router = useRouter();
+
+    const slug = params.slug as string[] | undefined;
+    const selectedState = slug?.[0] ? decodeURIComponent(slug[0]) : null;
+    const selectedDistrict = slug?.[1] ? decodeURIComponent(slug[1]) : null;
+
+    const viewState = useMemo<ViewState>(() => {
+        if (selectedDistrict) return "ITEMS";
+        if (selectedState) return "DISTRICTS";
+        return "STATES";
+    }, [selectedState, selectedDistrict]);
+
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     const uniqueStates = useMemo(() => {
@@ -131,34 +142,27 @@ export default function InventoryList({ inventory }: InventoryListProps) {
         availableInventory.filter((i) => i.state === state && i.district === district).length;
 
     const handleStateSelect = (state: string) => {
-        setSelectedState(state);
-        setViewState("DISTRICTS");
-        setSelectedDistrict(null);
+        router.push(`/petrolpump-media/${encodeURIComponent(state)}`);
         setSearchQuery("");
     };
 
     const handleDistrictSelect = (district: string) => {
-        setSelectedDistrict(district);
-        setViewState("ITEMS");
+        router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}/${encodeURIComponent(district)}`);
         setSearchQuery("");
     };
 
     const handleBack = () => {
         if (viewState === "ITEMS") {
-            setViewState("DISTRICTS");
-            setSelectedDistrict(null);
+            router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}`);
             setSearchQuery("");
         } else if (viewState === "DISTRICTS") {
-            setViewState("STATES");
-            setSelectedState(null);
+            router.push(`/petrolpump-media`);
             setSearchQuery("");
         }
     };
 
     const handleReset = () => {
-        setViewState("STATES");
-        setSelectedState(null);
-        setSelectedDistrict(null);
+        router.push(`/petrolpump-media`);
         setSearchQuery("");
     };
 
@@ -250,8 +254,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                             <ChevronRight className="w-4 h-4" />
                             <button
                                 onClick={() => {
-                                    setViewState("DISTRICTS");
-                                    setSelectedDistrict(null);
+                                    router.push(`/petrolpump-media/${encodeURIComponent(selectedState)}`);
                                     setSearchQuery("");
                                 }}
                                 className={cn("hover:text-[#002147]", viewState === "DISTRICTS" && "font-bold text-[#002147]")}
@@ -420,10 +423,9 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                 onChange={(e) => {
                                     const val = e.target.value;
                                     if (val) {
-                                        setSelectedDistrict(val);
+                                        router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}/${encodeURIComponent(val)}`);
                                     } else {
-                                        setSelectedDistrict(null);
-                                        setViewState("DISTRICTS");
+                                        router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}`);
                                     }
                                 }}
                                 className="bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm font-bold text-[#002147] focus:outline-none focus:ring-2 focus:ring-[#002147] cursor-pointer shadow-sm"

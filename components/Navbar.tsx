@@ -86,6 +86,7 @@ export default function Navbar() {
                             <div key={link.name} className="relative group">
                                 <Link
                                     href={link.path}
+                                    prefetch={false}
                                     className={`flex items-center gap-1 text-sm font-medium transition-colors hover:text-blue-300 ${isActive(link.path) ? "text-white font-bold" : "text-gray-300"
                                         }`}
                                 >
@@ -103,6 +104,7 @@ export default function Navbar() {
                                                 <Link
                                                     key={child.name}
                                                     href={child.path}
+                                                    prefetch={false}
                                                     className={`block px-6 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors ${child.separator ? "border-b border-white/20 mb-1" : ""
                                                         }`}
                                                 >
@@ -165,6 +167,7 @@ export default function Navbar() {
                                                     <Link
                                                         key={child.name}
                                                         href={child.path}
+                                                        prefetch={false}
                                                         onClick={() => setMobileMenuOpen(false)}
                                                         className={`text-sm text-gray-400 hover:text-white py-1.5 ${child.separator ? "font-bold text-white border-b border-white/10 w-3/4 text-center mb-1" : ""}`}
                                                     >
@@ -177,6 +180,7 @@ export default function Navbar() {
                                 ) : (
                                     <Link
                                         href={link.path}
+                                        prefetch={false}
                                         onClick={() => setMobileMenuOpen(false)}
                                         className={`text-base font-medium py-2 ${isActive(link.path) ? "text-white" : "text-gray-400"
                                             }`}
@@ -190,6 +194,7 @@ export default function Navbar() {
                         <UserMenu mobile />
                         <Link
                             href="/contact"
+                            prefetch={false}
                             onClick={() => setMobileMenuOpen(false)}
                             className="w-full text-center bg-white text-[#002147] font-bold py-3 rounded-md mt-4"
                         >
