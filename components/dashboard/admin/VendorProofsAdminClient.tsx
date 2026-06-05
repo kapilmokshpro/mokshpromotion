@@ -50,7 +50,14 @@ export default function VendorProofsAdminClient({
   const router = useRouter();
   const [loadingId, setLoadingId] = useState("");
   const [error, setError] = useState("");
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{
+    url: string;
+    outletName: string;
+    location: string;
+    latitude: number;
+    longitude: number;
+    submittedAt?: string | null;
+  } | null>(null);
   const [isPdfSelectorOpen, setIsPdfSelectorOpen] = useState(false);
   const [currentProofForPdf, setCurrentProofForPdf] = useState<ProofRow | null>(null);
   const [selectedPhotosForPdf, setSelectedPhotosForPdf] = useState<string[]>([]);
@@ -70,17 +77,6 @@ export default function VendorProofsAdminClient({
          </div>`
       : `<div class="video-box no-video"><strong>Video Proof:</strong> No Video Proof Uploaded</div>`;
 
-    const imagesHtml = selectedUrls
-      .map(
-        (url, idx) => `
-        <div class="image-cell">
-          <img src="${url}" alt="Proof Image" />
-          <div class="image-tag">Proof Photo 0${idx + 1}</div>
-        </div>
-      `
-      )
-      .join("");
-
     const locationStr = [
       proof.inventoryHoarding.locationName,
       proof.inventoryHoarding.city || proof.inventoryHoarding.district,
@@ -88,6 +84,51 @@ export default function VendorProofsAdminClient({
     ]
       .filter(Boolean)
       .join(", ");
+
+    const formattedDate = proof.submittedAt ? (() => {
+      try {
+        const date = new Date(proof.submittedAt);
+        const formattedHi = date.toLocaleString("hi-IN", {
+          weekday: 'long',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        return `${formattedHi} GMT +05:30`;
+      } catch (e) {
+        return new Date(proof.submittedAt).toLocaleString("en-IN") + " GMT +05:30";
+      }
+    })() : "-";
+
+    const imagesHtml = selectedUrls
+      .map(
+        (url, idx) => `
+        <div class="image-cell">
+          <img src="${url}" alt="Proof Image" />
+          <div class="image-tag">Proof Photo 0${idx + 1}</div>
+          
+          <div class="gps-watermark">
+            <div class="map-box">
+              <img
+                src="/images/map_placeholder.png"
+                alt="Map"
+                style="width: 100%; height: 100%; object-fit: cover; display: block;"
+              />
+            </div>
+            <div class="info-box">
+              <h4 class="info-title">${proof.inventoryHoarding.outletName || "Outlet Location"}</h4>
+              <p class="info-text">${locationStr || "Address not available"}</p>
+              <p class="info-mono">Lat ${Number(proof.latitude).toFixed(6)}° Long ${Number(proof.longitude).toFixed(6)}°</p>
+              <p class="info-date">${formattedDate}</p>
+            </div>
+          </div>
+        </div>
+      `
+      )
+      .join("");
 
     printWindow.document.write(`
       <html>
@@ -232,13 +273,13 @@ export default function VendorProofsAdminClient({
             .image-cell img {
               width: 100%;
               height: 100%;
-              object-fit: contain;
+              object-fit: cover;
               background-color: #fafafa;
               display: block;
             }
             .image-tag {
               position: absolute;
-              bottom: 8px;
+              top: 8px;
               left: 8px;
               background: rgba(0, 33, 71, 0.85);
               color: #ffffff;
@@ -247,6 +288,81 @@ export default function VendorProofsAdminClient({
               padding: 3px 8px;
               border-radius: 4px;
               letter-spacing: 0.5px;
+              z-index: 15;
+            }
+            .gps-watermark {
+              position: absolute;
+              bottom: 6px;
+              left: 6px;
+              right: 6px;
+              display: flex;
+              align-items: flex-end;
+              gap: 5px;
+              pointer-events: none;
+              z-index: 10;
+            }
+            .map-box {
+              width: 68px;
+              height: 68px;
+              border-radius: 6px;
+              overflow: hidden;
+              border: 1px solid rgba(255, 255, 255, 0.25);
+              flex-shrink: 0;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+              background-color: #18181b;
+            }
+            .map-box iframe {
+              width: 100%;
+              height: 100%;
+              border: none;
+              transform: scale(1.1);
+            }
+            .info-box {
+              flex: 1;
+              background-color: rgba(0, 0, 0, 0.65) !important;
+              backdrop-filter: blur(2px);
+              border: 1px solid rgba(255, 255, 255, 0.15);
+              border-radius: 6px;
+              padding: 4px 6px;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+              display: flex;
+              flex-direction: column;
+              text-align: left;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .info-title {
+              font-size: 7.5px;
+              font-weight: 800;
+              color: #ffffff !important;
+              margin: 0 0 1px 0;
+              line-height: 1.25;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .info-text {
+              font-size: 6.5px;
+              color: #e4e4e7 !important;
+              margin: 0 0 1px 0;
+              line-height: 1.25;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .info-mono {
+              font-family: monospace;
+              font-size: 6px;
+              color: #d4d4d8 !important;
+              margin: 0;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .info-date {
+              font-size: 6px;
+              font-weight: 600;
+              color: #d4d4d8 !important;
+              margin: 0;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .footer {
               border-top: 1px solid #e2e8f0;
@@ -305,7 +421,7 @@ export default function VendorProofsAdminClient({
               setTimeout(function() {
                 window.print();
                 window.close();
-              }, 500);
+              }, 1000);
             };
           </script>
         </body>
@@ -463,7 +579,14 @@ export default function VendorProofsAdminClient({
                       <img
                         src={media.url}
                         alt={media.fileName}
-                        onClick={() => setSelectedImageUrl(media.url)}
+                        onClick={() => setPreviewMedia({
+                          url: media.url,
+                          outletName: site.outletName,
+                          location: location,
+                          latitude: proof.latitude,
+                          longitude: proof.longitude,
+                          submittedAt: proof.submittedAt
+                        })}
                         className="w-full h-28 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                       />
                     ) : (
@@ -524,27 +647,79 @@ export default function VendorProofsAdminClient({
       </div>
 
       {/* Lightbox / Image Preview Modal */}
-      {selectedImageUrl && (
+      {previewMedia && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200 cursor-zoom-out"
-          onClick={() => setSelectedImageUrl(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 cursor-zoom-out"
+          onClick={() => setPreviewMedia(null)}
         >
           <button
             type="button"
-            className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all focus:outline-none"
-            onClick={() => setSelectedImageUrl(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all focus:outline-none z-50 animate-in fade-in duration-300"
+            onClick={() => setPreviewMedia(null)}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
           <div className="relative max-w-4xl max-h-[85vh] w-full flex items-center justify-center animate-in zoom-in-95 duration-200">
-            <img
-              src={selectedImageUrl}
-              alt="Site proof full view"
-              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl cursor-default"
+            <div 
+              className="relative max-h-[80vh] max-w-full overflow-hidden rounded-lg border border-white/10 shadow-2xl bg-zinc-950 flex flex-col cursor-default"
               onClick={(e) => e.stopPropagation()}
-            />
+            >
+              <img
+                src={previewMedia.url}
+                alt="Site proof full view"
+                className="max-w-full max-h-[80vh] object-contain block"
+              />
+              
+              {/* GPS Info Overlay Box - Floating watermark style overlay directly on the bottom of the image container */}
+              <div 
+                className="absolute bottom-4 left-4 right-4 flex items-end gap-3 pointer-events-none select-none z-10 animate-in slide-in-from-bottom-6 duration-300"
+              >
+                {/* Map Square */}
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-lg overflow-hidden border border-white/20 flex-shrink-0 shadow-lg bg-zinc-900">
+                  <img
+                    src="/images/map_placeholder.png"
+                    alt="Map"
+                    className="w-full h-full object-cover block"
+                  />
+                </div>
+                
+                {/* Info Card */}
+                <div className="relative flex-1 min-w-[180px] max-w-md bg-black/60 backdrop-blur-md text-white p-3 rounded-lg border border-white/10 flex flex-col justify-between shadow-lg">
+                  <div className="space-y-0.5 text-left">
+                    <h4 className="font-extrabold text-[11px] sm:text-xs md:text-sm text-white flex items-center gap-1">
+                      <span>{previewMedia.outletName || "Outlet Location"}</span>
+                    </h4>
+                    <p className="text-[9px] sm:text-[10px] md:text-[11px] text-zinc-200 leading-tight">
+                      {previewMedia.location || "Address not available"}
+                    </p>
+                    <p className="text-[9px] sm:text-[10px] md:text-[11px] text-zinc-300 font-mono">
+                      Lat {Number(previewMedia.latitude).toFixed(6)}° Long {Number(previewMedia.longitude).toFixed(6)}°
+                    </p>
+                    <p className="text-[9px] sm:text-[10px] md:text-[11px] text-zinc-300 font-semibold flex items-center gap-1">
+                      <span>{previewMedia.submittedAt ? (() => {
+                        try {
+                          const date = new Date(previewMedia.submittedAt);
+                          const formattedHi = date.toLocaleString("hi-IN", {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          });
+                          return `${formattedHi} GMT +05:30`;
+                        } catch (e) {
+                          return new Date(previewMedia.submittedAt).toLocaleString("en-IN") + " GMT +05:30";
+                        }
+                      })() : "-"}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
