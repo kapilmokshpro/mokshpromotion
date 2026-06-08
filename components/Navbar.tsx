@@ -32,6 +32,7 @@ export default function Navbar() {
     const navLinks = [
         { name: "HOME", path: "/" },
         { name: "PETROLPUMP MEDIA", path: "/petrolpump-media" },
+        { name: "OH", path: "/oh" },
         {
             name: "SERVICES",
             path: "/services",

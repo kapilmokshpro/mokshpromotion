@@ -52,6 +52,10 @@ interface InventoryListProps {
     inventory: InventoryItem[];
     statesList?: StateSummary[];
     districtsList?: DistrictSummary[];
+    basePath?: string;
+    itemLabel?: string;
+    itemsLabel?: string;
+    emptyItemLabel?: string;
 }
 
 type ViewState = "STATES" | "DISTRICTS" | "ITEMS";
@@ -65,7 +69,15 @@ function toTitleCase(str: string) {
         .join(" ");
 }
 
-export default function InventoryList({ inventory, statesList, districtsList }: InventoryListProps) {
+export default function InventoryList({
+    inventory,
+    statesList,
+    districtsList,
+    basePath = "/petrolpump-media",
+    itemLabel = "Outlet",
+    itemsLabel = "Outlets",
+    emptyItemLabel = "outlet",
+}: InventoryListProps) {
     const { toggleCartItem, isInCart, addToCart, removeFromCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -159,7 +171,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
             ? "Search state..."
             : viewState === "DISTRICTS"
                 ? `Search district in ${selectedState || "selected state"}...`
-                : "Search outlet, location, district, or state...";
+                : `Search ${emptyItemLabel}, location, district, or state...`;
 
     const getStateCount = (stateName: string) => {
         if (statesList) {
@@ -177,27 +189,27 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
     };
 
     const handleStateSelect = (state: string) => {
-        router.push(`/petrolpump-media/${encodeURIComponent(state)}`);
+        router.push(`${basePath}/${encodeURIComponent(state)}`);
         setSearchQuery("");
     };
 
     const handleDistrictSelect = (district: string) => {
-        router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}/${encodeURIComponent(district)}`);
+        router.push(`${basePath}/${encodeURIComponent(selectedState!)}/${encodeURIComponent(district)}`);
         setSearchQuery("");
     };
 
     const handleBack = () => {
         if (viewState === "ITEMS") {
-            router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}`);
+            router.push(`${basePath}/${encodeURIComponent(selectedState!)}`);
             setSearchQuery("");
         } else if (viewState === "DISTRICTS") {
-            router.push(`/petrolpump-media`);
+            router.push(basePath);
             setSearchQuery("");
         }
     };
 
     const handleReset = () => {
-        router.push(`/petrolpump-media`);
+        router.push(basePath);
         setSearchQuery("");
     };
 
@@ -289,7 +301,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
                             <ChevronRight className="w-4 h-4" />
                             <button
                                 onClick={() => {
-                                    router.push(`/petrolpump-media/${encodeURIComponent(selectedState)}`);
+                                    router.push(`${basePath}/${encodeURIComponent(selectedState)}`);
                                     setSearchQuery("");
                                 }}
                                 className={cn("hover:text-[#002147]", viewState === "DISTRICTS" && "font-bold text-[#002147]")}
@@ -373,7 +385,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
                                     </div>
                                     <div className="space-y-1">
                                         <h3 className="font-bold text-lg text-gray-900">{state}</h3>
-                                        <p className="text-sm text-gray-500">{getStateCount(state)} Outlets</p>
+                                        <p className="text-sm text-gray-500">{getStateCount(state)} {itemsLabel}</p>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -434,7 +446,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
                                         </div>
                                         <div className="space-y-1">
                                             <h3 className="font-bold text-lg text-gray-900">{district}</h3>
-                                            <p className="text-sm text-gray-500">{getDistrictCount(selectedState!, district)} Outlets</p>
+                                            <p className="text-sm text-gray-500">{getDistrictCount(selectedState!, district)} {itemsLabel}</p>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -458,9 +470,9 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
                                 onChange={(e) => {
                                     const val = e.target.value;
                                     if (val) {
-                                        router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}/${encodeURIComponent(val)}`);
+                                        router.push(`${basePath}/${encodeURIComponent(selectedState!)}/${encodeURIComponent(val)}`);
                                     } else {
-                                        router.push(`/petrolpump-media/${encodeURIComponent(selectedState!)}`);
+                                        router.push(`${basePath}/${encodeURIComponent(selectedState!)}`);
                                     }
                                 }}
                                 className="bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm font-bold text-[#002147] focus:outline-none focus:ring-2 focus:ring-[#002147] cursor-pointer shadow-sm"
@@ -474,7 +486,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
                             </select>
                             <span className="text-gray-500 font-medium text-sm sm:text-base">, {selectedState}</span>
                             <Badge variant="secondary" className="bg-blue-100 text-[#002147] font-semibold text-xs py-1">
-                                {filteredInventory.length} Outlets Available
+                                {filteredInventory.length} {itemsLabel} Available
                             </Badge>
                         </h3>
                     </div>
@@ -511,7 +523,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
                                             }}
                                         />
                                     </th>
-                                    <th className="px-6 py-4">Outlet Name</th>
+                                    <th className="px-6 py-4">{itemLabel} Name</th>
                                     <th className="px-6 py-4">Location</th>
                                     <th className="px-6 py-4">State / District</th>
                                     <th className="px-6 py-4 text-center">Dimensions</th>
@@ -524,7 +536,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
                                 {filteredInventory.length === 0 ? (
                                     <tr>
                                         <td colSpan={8} className="px-6 py-10 text-center text-gray-500">
-                                            No inventory found for "{searchQuery}".
+                                            No {emptyItemLabel} inventory found for "{searchQuery}".
                                         </td>
                                     </tr>
                                 ) : (
@@ -820,7 +832,7 @@ export default function InventoryList({ inventory, statesList, districtsList }: 
 
                                 {selectedItem?.availabilityStatus === "BOOKED" && (
                                     <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm font-medium">
-                                        Warning: This outlet is currently booked and unavailable for new campaigns. Try similar locations in this district.
+                                        Warning: This {emptyItemLabel} is currently booked and unavailable for new campaigns. Try similar locations in this district.
                                     </div>
                                 )}
                             </div>
