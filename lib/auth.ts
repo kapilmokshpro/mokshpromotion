@@ -19,7 +19,9 @@ export const authOptions: NextAuthOptions = {
                 password: { label: "Password", type: "password" }
             },
             async authorize(credentials) {
+                console.log('[AUTH DEBUG] authorize called with email:', credentials?.email)
                 if (!credentials?.email || !credentials?.password) {
+                    console.log('[AUTH DEBUG] Missing email or password')
                     return null
                 }
 
@@ -30,12 +32,16 @@ export const authOptions: NextAuthOptions = {
                 })
 
                 if (!user) {
+                    console.log('[AUTH DEBUG] User NOT found in DB for email:', credentials.email.trim().toLowerCase())
                     return null
                 }
+                console.log('[AUTH DEBUG] User found:', user.id, user.email, user.role)
 
                 const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
+                console.log('[AUTH DEBUG] Password valid:', isPasswordValid)
 
                 if (!isPasswordValid) {
+                    console.log('[AUTH DEBUG] Password mismatch')
                     return null
                 }
 

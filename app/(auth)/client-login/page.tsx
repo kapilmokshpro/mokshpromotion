@@ -141,6 +141,7 @@ function ClientLoginForm() {
                                 <Mail className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
                                 <input
                                     {...form.register("email")}
+                                    suppressHydrationWarning
                                     className="block w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 text-gray-900 placeholder-gray-400 focus:border-[#002147] focus:ring-[#002147] sm:text-sm shadow-sm transition-all hover:border-gray-300"
                                     type="email"
                                     placeholder="name@company.com"
@@ -162,6 +163,7 @@ function ClientLoginForm() {
                                 <Lock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
                                 <input
                                     {...form.register("password")}
+                                    suppressHydrationWarning
                                     className="block w-full rounded-xl border border-gray-200 pl-11 pr-4 py-3 text-gray-900 placeholder-gray-400 focus:border-[#002147] focus:ring-[#002147] sm:text-sm shadow-sm transition-all hover:border-gray-300"
                                     type="password"
                                     placeholder="••••••••"
@@ -175,6 +177,7 @@ function ClientLoginForm() {
                         <button
                             type="submit"
                             disabled={loading}
+                            suppressHydrationWarning
                             className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-[#002147] hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#002147] disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5"
                         >
                             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign In to Dashboard"}

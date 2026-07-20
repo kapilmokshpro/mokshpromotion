@@ -79,6 +79,7 @@ export default function ClientsSection() {
                     {/* Arrows */}
                     <button
                         onClick={handlePrev}
+                        suppressHydrationWarning
                         className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 z-20 bg-white/10 hover:bg-white text-white hover:text-[#002147] p-3 rounded-full transition-all shadow-lg backdrop-blur-sm hidden md:flex items-center justify-center"
                         aria-label="Previous slide"
                     >
@@ -86,6 +87,7 @@ export default function ClientsSection() {
                     </button>
                     <button
                         onClick={handleNext}
+                        suppressHydrationWarning
                         className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 z-20 bg-white/10 hover:bg-white text-white hover:text-[#002147] p-3 rounded-full transition-all shadow-lg backdrop-blur-sm hidden md:flex items-center justify-center"
                         aria-label="Next slide"
                     >

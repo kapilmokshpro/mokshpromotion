@@ -73,6 +73,7 @@ const nextConfig = {
     // Experimental features for better performance
     experimental: {
         optimizePackageImports: ['lucide-react', 'date-fns'],
+        serverComponentsExternalPackages: ['@prisma/client', '@prisma/adapter-pg', 'pg'],
     },
 
     // SWC minification (faster than Terser)
