@@ -32,7 +32,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
-    const pathname = usePathname()
+    const pathname = usePathname() ?? ""
     const { data: session } = useSession()
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
 

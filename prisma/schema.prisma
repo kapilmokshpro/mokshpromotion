@@ -84,6 +84,7 @@ model User {
 
   tasksAssigned      WorkTask[]              @relation("TasksAssignedTo")
   tasksGiven         WorkTask[]              @relation("TasksAssignedBy")
+  workTaskUpdates    WorkTaskUpdate[]        @relation("WorkTaskUpdateAuthor")
 }
 
 // ... existing models ...
@@ -685,7 +686,27 @@ model WorkTask {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  updates      WorkTaskUpdate[]
+
   @@index([assignedToId])
   @@index([assignedById])
   @@index([status])
 }
+
+model WorkTaskUpdate {
+  id        Int      @id @default(autoincrement())
+  taskId    Int
+  task      WorkTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation("WorkTaskUpdateAuthor", fields: [authorId], references: [id])
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+
+
+

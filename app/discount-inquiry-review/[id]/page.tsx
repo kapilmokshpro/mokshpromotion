@@ -13,8 +13,8 @@ import { Loader2, CheckCircle2, XCircle, Shield, ShoppingCart } from "lucide-rea
 import { toast } from "sonner"
 
 export default function DiscountInquiryReviewPage() {
-    const params = useParams()
-    const searchParams = useSearchParams()
+    const params = useParams()!;
+    const searchParams = useSearchParams()!
     const id = params.id as string
     const token = searchParams.get("token")
     const router = useRouter()

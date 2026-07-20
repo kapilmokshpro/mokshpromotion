@@ -4,7 +4,7 @@ import { Suspense, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
 function SetupVendorPasswordForm() {
-    const searchParams = useSearchParams()
+    const searchParams = useSearchParams()!
     const router = useRouter()
 
     const vendorId = useMemo(() => searchParams.get("vendorId") || "", [searchParams])

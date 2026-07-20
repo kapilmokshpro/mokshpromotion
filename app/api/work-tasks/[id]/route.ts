@@ -1,81 +1,80 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
+﻿import { NextRequest, NextResponse } from "next/server"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
+
+const pretty = (value: string) => value.replace(/_/g, " ").toLowerCase()
 
 async function updateWorkTask(req: NextRequest, { params }: { params: { id: string } }) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-        const taskId = parseInt(params.id);
-        const body = await req.json();
-        const { status, title, description, priority, dueDate } = body;
+    const taskId = Number(params.id)
+    const body = await req.json()
+    const { status, title, description, priority, dueDate, assignedToId } = body
 
-        const task = await db.workTask.findUnique({
-            where: { id: taskId }
-        });
+    const task = await db.workTask.findUnique({ where: { id: taskId } })
+    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 })
 
-        if (!task) {
-            return NextResponse.json({ error: "Task not found" }, { status: 404 });
-        }
+    const isAdmin = ["ADMIN", "SUPER_ADMIN"].includes(session.user.role || "")
+    const isAssignedUser = task.assignedToId === Number(session.user.id)
+    if (!isAdmin && !isAssignedUser) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-        const isAdmin = session.user.role === "SUPER_ADMIN" || session.user.role === "ADMIN";
-        const isAssignedUser = task.assignedToId === parseInt(session.user.id);
+    const data: Record<string, unknown> = {}
+    const notes: string[] = []
 
-        if (!isAdmin && !isAssignedUser) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-
-        // If not admin, can only update status
-        const updateData: any = {};
-        if (status) updateData.status = status;
-        
-        if (isAdmin) {
-            if (title) updateData.title = title;
-            if (description !== undefined) updateData.description = description;
-            if (priority) updateData.priority = priority;
-            if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
-        }
-
-        const updatedTask = await db.workTask.update({
-            where: { id: taskId },
-            data: updateData
-        });
-
-        return NextResponse.json(updatedTask);
-    } catch (error) {
-        console.error("Update WorkTask Error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    if (status && status !== task.status) {
+      data.status = status
+      notes.push(`Status changed to ${pretty(status)}.`)
     }
+
+    if (isAdmin) {
+      if (title !== undefined) data.title = title
+      if (description !== undefined) data.description = description
+      if (priority) data.priority = priority
+      if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null
+      if (assignedToId && Number(assignedToId) !== task.assignedToId) {
+        const nextAssignee = await db.user.findUnique({ where: { id: Number(assignedToId) }, select: { name: true, email: true, employeeId: true } })
+        data.assignedToId = Number(assignedToId)
+        notes.push(`Reassigned to ${nextAssignee?.name || nextAssignee?.employeeId || nextAssignee?.email || "another team member"}.`)
+      }
+    }
+
+    const updatedTask = await db.workTask.update({ where: { id: taskId }, data })
+
+    if (notes.length > 0) {
+      await db.workTaskUpdate.createMany({
+        data: notes.map((message) => ({ taskId, authorId: Number(session.user.id), message })),
+      })
+    }
+
+    return NextResponse.json(updatedTask)
+  } catch (error) {
+    console.error("Update WorkTask Error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
 }
 
 export async function PUT(req: NextRequest, context: { params: { id: string } }) {
-    return updateWorkTask(req, context);
+  return updateWorkTask(req, context)
 }
 
 export async function PATCH(req: NextRequest, context: { params: { id: string } }) {
-    return updateWorkTask(req, context);
+  return updateWorkTask(req, context)
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id || (session.user.role !== "SUPER_ADMIN" && session.user.role !== "ADMIN")) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const taskId = parseInt(params.id);
-
-        await db.workTask.delete({
-            where: { id: taskId }
-        });
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error("DELETE WorkTask Error:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id || !["SUPER_ADMIN", "ADMIN"].includes(session.user.role || "")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    await db.workTask.delete({ where: { id: Number(params.id) } })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("DELETE WorkTask Error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
 }

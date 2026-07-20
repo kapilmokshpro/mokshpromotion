@@ -43,9 +43,9 @@ export default function SiteMediaBrowserClient() {
     const [districts, setDistricts] = useState<DistrictRow[]>([])
     const [sites, setSites] = useState<SiteRow[]>([])
 
-    const searchParams = useSearchParams()
+    const searchParams = useSearchParams()!
     const router = useRouter()
-    const pathname = usePathname()
+    const pathname = usePathname() ?? ""
 
     const selectedState = searchParams.get("state") || ""
     const selectedDistrict = searchParams.get("district") || ""

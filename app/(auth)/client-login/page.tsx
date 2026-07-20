@@ -33,7 +33,7 @@ const normalizeCallbackPath = (value: string | null, fallbackPath: string) => {
 
 function ClientLoginForm() {
     const router = useRouter()
-    const searchParams = useSearchParams()
+    const searchParams = useSearchParams()!
     const callbackUrl = searchParams.get("callbackUrl")
     const callbackPath = normalizeCallbackPath(callbackUrl, "/")
     const registered = searchParams.get("registered") === "true"

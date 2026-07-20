@@ -9,7 +9,8 @@ import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 
 export default function Navbar() {
-    const pathname = usePathname();
+    const pathname = usePathname() ?? "";
+    const { data: session } = useSession();
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
@@ -32,7 +33,7 @@ export default function Navbar() {
     const navLinks = [
         { name: "HOME", path: "/" },
         { name: "PETROLPUMP MEDIA", path: "/petrolpump-media" },
-        { name: "OH", path: "/oh" },
+        { name: "OOH", path: "/oh" },
         {
             name: "SERVICES",
             path: "/services",
@@ -55,6 +56,8 @@ export default function Navbar() {
             ]
         },
     ];
+
+    const crmHref = session ? "/crm-dashboard" : "/crm-dashboard/login";
 
     return (
         <nav
@@ -122,6 +125,13 @@ export default function Navbar() {
                     {/* Right: Actions */}
                     <div className="hidden md:flex items-center gap-6">
                         <CartIcon />
+                        <Link
+                            href={crmHref}
+                            className="group flex items-center gap-2 border border-amber-400/35 px-5 py-2 rounded-full text-sm font-semibold text-amber-100 bg-amber-400/10 hover:bg-amber-400 hover:text-[#002147] transition-all"
+                        >
+                            CRM
+                            <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                        </Link>
                         <UserMenu />
                         <Link
                             href="/contact"
@@ -192,6 +202,14 @@ export default function Navbar() {
                             </div>
                         ))}
                         <div className="h-px w-full bg-white/10 my-2"></div>
+                        <Link
+                            href={crmHref}
+                            prefetch={false}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="w-full text-center border border-amber-400/35 bg-amber-400/10 text-amber-100 font-semibold py-3 rounded-md"
+                        >
+                            CRM
+                        </Link>
                         <UserMenu mobile />
                         <Link
                             href="/contact"
@@ -304,4 +322,3 @@ function UserMenu({ mobile }: { mobile?: boolean }) {
         </div>
     )
 }
-

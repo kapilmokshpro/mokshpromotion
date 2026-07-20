@@ -91,7 +91,7 @@ export default function InventoryList({
         }));
     }, [inventory]);
 
-    const params = useParams();
+    const params = useParams()!;
     const router = useRouter();
 
     const slug = params.slug as string[] | undefined;

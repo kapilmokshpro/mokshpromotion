@@ -29,8 +29,8 @@ interface DiscountRequestData {
 }
 
 export default function DiscountReviewPage() {
-    const params = useParams();
-    const searchParams = useSearchParams();
+    const params = useParams()!;
+    const searchParams = useSearchParams()!;
     const requestId = params.requestId as string;
     const token = searchParams.get("token");
 

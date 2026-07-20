@@ -32,7 +32,7 @@ const normalizeCallbackPath = (value: string | null, fallbackPath: string) => {
 
 function LoginForm() {
     const router = useRouter()
-    const searchParams = useSearchParams()
+    const searchParams = useSearchParams()!
     const callbackUrl = searchParams.get("callbackUrl")
     const callbackPath = normalizeCallbackPath(callbackUrl, "/dashboard")
     const [error, setError] = useState("")
