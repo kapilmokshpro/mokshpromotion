@@ -125,19 +125,19 @@ export default function Navbar() {
                     {/* Right: Actions */}
                     <div className="hidden md:flex items-center gap-6">
                         <CartIcon />
-                        <Link
-                            href={crmHref}
-                            className="group flex items-center gap-2 border border-amber-400/35 px-5 py-2 rounded-full text-sm font-semibold text-amber-100 bg-amber-400/10 hover:bg-amber-400 hover:text-[#002147] transition-all"
-                        >
-                            CRM
-                            <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                        </Link>
                         <UserMenu />
                         <Link
                             href="/contact"
                             className="group flex items-center gap-2 border border-white/30 px-5 py-2 rounded-full text-sm font-medium text-white hover:bg-white hover:text-[#002147] transition-all"
                         >
                             Get in Touch
+                            <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                        </Link>
+                        <Link
+                            href={crmHref}
+                            className="group flex items-center gap-2 border border-amber-400/35 px-5 py-2 rounded-full text-sm font-semibold text-amber-100 bg-amber-400/10 hover:bg-amber-400 hover:text-[#002147] transition-all"
+                        >
+                            CRM
                             <ArrowUpRight className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                         </Link>
                     </div>
@@ -202,14 +202,6 @@ export default function Navbar() {
                             </div>
                         ))}
                         <div className="h-px w-full bg-white/10 my-2"></div>
-                        <Link
-                            href={crmHref}
-                            prefetch={false}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="w-full text-center border border-amber-400/35 bg-amber-400/10 text-amber-100 font-semibold py-3 rounded-md"
-                        >
-                            CRM
-                        </Link>
                         <UserMenu mobile />
                         <Link
                             href="/contact"
@@ -218,6 +210,14 @@ export default function Navbar() {
                             className="w-full text-center bg-white text-[#002147] font-bold py-3 rounded-md mt-4"
                         >
                             Get in Touch
+                        </Link>
+                        <Link
+                            href={crmHref}
+                            prefetch={false}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="w-full text-center border border-amber-400/35 bg-amber-400/10 text-amber-100 font-semibold py-3 rounded-md mt-4"
+                        >
+                            CRM
                         </Link>
                     </div>
                 </div>
