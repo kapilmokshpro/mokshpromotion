@@ -43,3 +43,16 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# credentials, backups and local debug files
+USER_CREDENTIALS.md
+SUPER_ADMIN_GUIDE.md
+auth_test.txt
+backup_data.json
+users.log
+users_debug.json
+users_list.txt
+build_log.txt
+build_log_2.txt
+build_log_v2.txt
+*.log
