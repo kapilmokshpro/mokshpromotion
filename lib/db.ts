@@ -7,7 +7,7 @@ const prismaClientSingleton = () => {
 }
 
 declare global {
-    var pgPool: undefined | ReturnType<typeof pgPoolSingleton>
+    // eslint-disable-next-line no-var
     var prisma: undefined | ReturnType<typeof prismaClientSingleton>
 }
 
