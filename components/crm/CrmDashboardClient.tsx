@@ -3,8 +3,10 @@
 import type { ComponentType } from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Loader2, MessageSquareText, Send, Users2 } from "lucide-react"
+import { signOut } from "next-auth/react"
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Loader2, LogOut, MessageCircle, MessageSquareText, Send, Settings, Users2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import EditUserModal from "@/components/dashboard/EditUserModal"
 
 type TeamUser = {
   id: number
@@ -77,6 +79,10 @@ export default function CrmDashboardClient({ currentUser, isAdmin, tasks: initia
   const [note, setNote] = useState("")
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [chatUnread, setChatUnread] = useState(0)
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) || tasks[0] || null
 
@@ -97,6 +103,38 @@ export default function CrmDashboardClient({ currentUser, isAdmin, tasks: initia
     assigned: tasks.filter((task) => task.status === "PENDING").length,
     progress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
     done: tasks.filter((task) => task.status === "COMPLETED").length,
+  }
+
+  // Fetch chat unread count
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await fetch("/api/chat/unread")
+        if (res.ok) {
+          const data = await res.json()
+          setChatUnread(data.total || 0)
+        }
+      } catch { /* silent */ }
+    }
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const openDmWithUser = async (targetUserId: number) => {
+    try {
+      const res = await fetch("/api/chat/dm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId }),
+      })
+      if (res.ok) {
+        const dm = await res.json()
+        router.push(`/crm-dashboard/chat?channel=${dm.id}`)
+      }
+    } catch {
+      router.push("/crm-dashboard/chat")
+    }
   }
 
   const updateTask = async () => {
@@ -169,57 +207,138 @@ export default function CrmDashboardClient({ currentUser, isAdmin, tasks: initia
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#002147]">
-          <Users2 className="h-4 w-4" />
-          CRM dashboard
-        </div>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Work assigned to the team</h1>
-        <p className="mt-3 max-w-2xl text-slate-600">
-          Simple task tracking with a side panel for work messages, status changes, and updates.
-        </p>
+      <section className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+        {/* Top Header with User Profile & Logout */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-[#002147]">
+              <Users2 className="h-4 w-4 shrink-0" />
+              <span>CRM dashboard</span>
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl text-slate-900">Work assigned to the team</h1>
+            <p className="mt-1 max-w-2xl text-xs sm:text-sm text-slate-600">
+              Simple task tracking with a side panel for work messages, status changes, and updates.
+            </p>
+          </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {/* User Actions Bar */}
+          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
+            {/* Profile Settings Button Card */}
+            <button
+              type="button"
+              onClick={() => setIsProfileModalOpen(true)}
+              className="group flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-2 pr-3.5 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-slate-50"
+              title="Click to open Profile Settings"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#002147] text-sm font-bold text-white shadow-sm transition-transform group-hover:scale-105">
+                {(currentUser.name || currentUser.email || "U").charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-900 max-w-[130px]">
+                  {currentUser.name || currentUser.email || "User"}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-800">
+                  {currentUser.role}
+                </p>
+              </div>
+              <Settings className="h-4 w-4 text-slate-400 transition-transform group-hover:rotate-45 group-hover:text-[#002147] ml-1" />
+            </button>
+
+            {/* Team Chat Button */}
+            <button
+              type="button"
+              onClick={() => router.push("/crm-dashboard/chat")}
+              className="relative inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/70 px-3.5 py-2.5 text-xs font-semibold text-[#002147] shadow-sm transition-all hover:bg-[#002147] hover:text-white hover:border-[#002147]"
+              title="Open Team Chat"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>Chat</span>
+              {chatUnread > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full h-[18px] min-w-[18px] flex items-center justify-center px-1 shadow-sm">
+                  {chatUnread > 99 ? "99+" : chatUnread}
+                </span>
+              )}
+            </button>
+
+            {/* Logout Button (Triggers Confirmation Pop-up) */}
+            <button
+              type="button"
+              onClick={() => setShowLogoutConfirm(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50/70 px-3.5 py-2.5 text-xs font-semibold text-red-600 shadow-sm transition-all hover:bg-red-600 hover:text-white hover:border-red-600"
+              title="Log out of CRM"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <SummaryCard label="Assigned" value={counts.assigned} icon={Clock3} />
           <SummaryCard label="In progress" value={counts.progress} icon={Loader2} />
           <SummaryCard label="Completed" value={counts.done} icon={CheckCircle2} />
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[260px_minmax(0,1fr)_420px]">
-          <aside className="space-y-4 xl:sticky xl:top-6">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[240px_minmax(0,1fr)_360px] 2xl:grid-cols-[260px_minmax(0,1fr)_400px]">
+          {/* Left Sidebar */}
+          <aside className="space-y-4 xl:sticky xl:top-6 min-w-0">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#002147]">Work sidebar</p>
-              <h2 className="mt-2 text-xl font-semibold">Messages and task info</h2>
+              <h2 className="mt-1 text-lg sm:text-xl font-semibold text-slate-900">Messages and task info</h2>
 
               {selectedTask ? (
-                <div className="mt-5 space-y-4">
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Selected task</p>
-                    <p className="mt-2 font-semibold">{selectedTask.title}</p>
-                    <p className="mt-1 text-sm text-slate-500">{STATUS_LABELS[selectedTask.status]}</p>
+                <div className="mt-4 space-y-4 min-w-0">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 min-w-0 overflow-hidden">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Selected task</p>
+                    <p className="mt-1 font-semibold text-slate-900 truncate">{selectedTask.title}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{STATUS_LABELS[selectedTask.status]}</p>
                   </div>
 
                   <InfoTile label="Assigned to" value={selectedTask.assignedTo.name || selectedTask.assignedTo.email || "Employee"} />
                   <InfoTile label="Due date" value={formatDate(selectedTask.dueDate)} />
 
-                  <div className="rounded-xl border border-slate-200 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-slate-700">Work messages</p>
-                      <MessageSquareText className="h-4 w-4 text-slate-400" />
+                  {/* 1-on-1 Direct Chat Action Buttons */}
+                  <div className="space-y-2 pt-1">
+                    {selectedTask.assignedTo.id !== currentUser.id && (
+                      <button
+                        type="button"
+                        onClick={() => openDmWithUser(selectedTask.assignedTo.id)}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#002147] px-3.5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#003366]"
+                      >
+                        <MessageCircle className="h-4 w-4 shrink-0 text-blue-200" />
+                        <span>Chat with {selectedTask.assignedTo.name?.split(" ")[0] || "Assignee"} (Assignee)</span>
+                      </button>
+                    )}
+                    {selectedTask.assignedBy.id !== currentUser.id && selectedTask.assignedBy.id !== selectedTask.assignedTo.id && (
+                      <button
+                        type="button"
+                        onClick={() => openDmWithUser(selectedTask.assignedBy.id)}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50/80 px-3.5 py-2.5 text-xs font-semibold text-[#002147] shadow-sm transition-all hover:bg-[#002147] hover:text-white"
+                      >
+                        <MessageCircle className="h-4 w-4 shrink-0" />
+                        <span>Chat with {selectedTask.assignedBy.name?.split(" ")[0] || "Assigner"} (Assigner)</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-3.5 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <p className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Work messages</p>
+                      <MessageSquareText className="h-4 w-4 text-slate-400 shrink-0" />
                     </div>
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-3 space-y-2.5 min-w-0">
                       {recentMessages.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                        <div className="rounded-xl border border-dashed border-slate-200 p-3 text-xs text-slate-500">
                           No messages yet.
                         </div>
                       ) : (
                         recentMessages.map((update) => (
-                          <div key={update.id} className="rounded-xl bg-slate-50 p-3">
-                            <p className="text-sm font-medium text-slate-800">
+                          <div key={update.id} className="rounded-xl bg-slate-50 p-3 min-w-0 overflow-hidden">
+                            <p className="text-xs font-semibold text-slate-800 truncate">
                               {update.author.name || update.author.email || "Team member"}
                             </p>
-                            <p className="mt-1 text-sm text-slate-600">{update.message}</p>
-                            <p className="mt-2 text-xs text-slate-400">{formatTime(update.createdAt)}</p>
+                            <p className="mt-1 text-xs text-slate-600 break-words leading-relaxed">{update.message}</p>
+                            <p className="mt-1.5 text-[10px] text-slate-400">{formatTime(update.createdAt)}</p>
                           </div>
                         ))
                       )}
@@ -227,121 +346,168 @@ export default function CrmDashboardClient({ currentUser, isAdmin, tasks: initia
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
                   Select a task to see messages and details.
                 </div>
               )}
             </div>
           </aside>
 
-          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div>
-                <h2 className="text-lg font-semibold">Tasks</h2>
-                <p className="text-sm text-slate-500">Assigned, in progress, completed</p>
+          {/* Center Tasks Board */}
+          <section className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3.5 sm:px-5 min-w-0">
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-semibold text-slate-900 truncate">Tasks</h2>
+                <p className="text-xs text-slate-500 truncate">Assigned, in progress, completed</p>
               </div>
-              <span className="text-sm text-slate-500">{tasks.length} total</span>
+              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                {tasks.length} total
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-px bg-slate-200 md:grid-cols-3">
-              {STATUS_ORDER.map((status) => {
-                const columnTasks = tasks.filter((task) => task.status === status)
+            <div className="overflow-x-auto min-w-0">
+              <div className="grid grid-cols-1 gap-px bg-slate-200 sm:grid-cols-3 min-w-[480px] sm:min-w-0">
+                {STATUS_ORDER.map((status) => {
+                  const columnTasks = tasks.filter((task) => task.status === status)
 
-                return (
-                  <div key={status} className="min-h-[320px] bg-slate-50 p-4">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h3 className="font-semibold text-slate-800">{STATUS_LABELS[status]}</h3>
-                      <span className="text-xs text-slate-500">{columnTasks.length}</span>
-                    </div>
+                  return (
+                    <div key={status} className="flex flex-col min-h-[360px] bg-slate-50 p-3 sm:p-4 min-w-0">
+                      <div className="mb-3 flex items-center justify-between gap-2 min-w-0">
+                        <h3 className="font-semibold text-xs sm:text-sm text-slate-800 truncate">{STATUS_LABELS[status]}</h3>
+                        <span className="shrink-0 rounded-full bg-slate-200/70 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                          {columnTasks.length}
+                        </span>
+                      </div>
 
-                    <div className="space-y-3">
-                      {columnTasks.map((task) => (
-                        <button
-                          key={task.id}
-                          type="button"
-                          onClick={() => setSelectedTaskId(task.id)}
-                          className={cn(
-                            "w-full rounded-xl border p-4 text-left transition-colors",
-                            selectedTask?.id === task.id ? "border-[#002147] bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50",
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{task.priority} priority</p>
-                              <h4 className="mt-1 font-semibold">{task.title}</h4>
+                      <div className="space-y-3 min-w-0 flex-1">
+                        {columnTasks.map((task) => (
+                          <button
+                            key={task.id}
+                            type="button"
+                            onClick={() => setSelectedTaskId(task.id)}
+                            className={cn(
+                              "w-full rounded-xl border p-3.5 text-left transition-all min-w-0 overflow-hidden block",
+                              selectedTask?.id === task.id
+                                ? "border-[#002147] bg-blue-50/80 shadow-sm ring-1 ring-[#002147]/20"
+                                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80",
+                            )}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-1.5 min-w-0">
+                              <span className="inline-block truncate text-[10px] font-semibold uppercase tracking-wider text-slate-400 max-w-[120px]">
+                                {task.priority} priority
+                              </span>
+                              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-500">
+                                {STATUS_LABELS[status]}
+                              </span>
                             </div>
-                            <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{STATUS_LABELS[status]}</span>
-                          </div>
-                          <p className="mt-2 line-clamp-2 text-sm text-slate-600">{task.description || "No description."}</p>
-                          <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                            <span className="inline-flex items-center gap-1.5">
-                              <CalendarDays className="h-3.5 w-3.5" />
-                              {formatDate(task.dueDate)}
-                            </span>
-                            <span>{task.assignedTo.name || task.assignedTo.email || "Employee"}</span>
-                          </div>
-                        </button>
-                      ))}
 
-                      {columnTasks.length === 0 && (
-                        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-center text-sm text-slate-500">
-                          No tasks here.
-                        </div>
-                      )}
+                            <h4 className="mt-1.5 text-sm font-semibold text-slate-900 break-words line-clamp-2 min-w-0">
+                              {task.title}
+                            </h4>
+
+                            <p className="mt-1 line-clamp-2 text-xs text-slate-600 break-words leading-relaxed">
+                              {task.description || "No description."}
+                            </p>
+
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-1.5 border-t border-slate-100 pt-2.5 text-xs text-slate-500 min-w-0">
+                              <span className="inline-flex items-center gap-1 shrink-0 text-[11px]">
+                                <CalendarDays className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                <span>{formatDate(task.dueDate)}</span>
+                              </span>
+                              <span className="truncate text-[11px] font-medium text-slate-600 min-w-0 max-w-[110px] text-right">
+                                {task.assignedTo.name || task.assignedTo.email || "Employee"}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+
+                        {columnTasks.length === 0 && (
+                          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-5 text-center text-xs text-slate-400">
+                            No tasks here.
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </section>
 
-          <aside className="space-y-4 xl:sticky xl:top-6">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
+          {/* Right Task Detail Sidebar */}
+          <aside className="space-y-4 xl:sticky xl:top-6 min-w-0">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm min-w-0">
+              <div className="flex items-center justify-between gap-3 min-w-0">
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#002147]">Task detail</p>
-                  <h2 className="mt-1 text-xl font-semibold">Workroom</h2>
+                  <h2 className="mt-0.5 text-lg sm:text-xl font-semibold text-slate-900 truncate">Workroom</h2>
                 </div>
-                <MessageSquareText className="h-5 w-5 text-slate-400" />
+                <MessageSquareText className="h-5 w-5 text-slate-400 shrink-0" />
               </div>
 
-              {!selectedTask && <div className="mt-5 text-sm text-slate-500">Select a task.</div>}
+              {!selectedTask && <div className="mt-4 text-xs text-slate-500">Select a task.</div>}
 
               {selectedTask && (
-                <div className="mt-5 space-y-5">
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <span className="inline-flex rounded-full bg-[#002147] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
-                          {STATUS_LABELS[selectedTask.status]}
-                        </span>
-                        <h3 className="mt-3 text-2xl font-semibold">{selectedTask.title}</h3>
-                      </div>
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                <div className="mt-4 space-y-4 min-w-0">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 min-w-0">
+                    <div className="flex flex-wrap items-start justify-between gap-2 min-w-0">
+                      <span className="inline-flex items-center rounded-full bg-[#002147] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white shrink-0">
+                        {STATUS_LABELS[selectedTask.status]}
+                      </span>
+                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 shrink-0">
                         {selectedTask.priority}
                       </span>
                     </div>
-                    <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">
+
+                    <h3 className="mt-3 text-xl font-semibold text-slate-900 break-words min-w-0">{selectedTask.title}</h3>
+                    <p className="mt-2 whitespace-pre-wrap text-xs sm:text-sm text-slate-600 break-words leading-relaxed">
                       {selectedTask.description || "No description provided."}
                     </p>
 
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="mt-4 grid grid-cols-2 gap-2.5 min-w-0">
                       <InfoTile label="Due date" value={formatDate(selectedTask.dueDate)} />
                       <InfoTile label="Assigned by" value={selectedTask.assignedBy.name || selectedTask.assignedBy.email || "Team"} />
                       <InfoTile label="Assigned to" value={selectedTask.assignedTo.name || selectedTask.assignedTo.email || "Employee"} />
                       <InfoTile label="Updated" value={formatDate(selectedTask.updatedAt)} />
                     </div>
+
+                    {/* 1-on-1 Direct Chat Action Buttons inside Workroom */}
+                    <div className="mt-4 pt-3.5 border-t border-slate-200/80">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Team Coordination Chat</p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        {selectedTask.assignedTo.id !== currentUser.id && (
+                          <button
+                            type="button"
+                            onClick={() => openDmWithUser(selectedTask.assignedTo.id)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#002147] text-white px-3.5 py-2 text-xs font-semibold hover:bg-[#003366] transition-all shadow-sm"
+                          >
+                            <MessageCircle className="h-4 w-4 shrink-0 text-blue-200" />
+                            <span>Chat 1-on-1 with {selectedTask.assignedTo.name?.split(" ")[0] || "Assignee"}</span>
+                          </button>
+                        )}
+                        {selectedTask.assignedBy.id !== currentUser.id && selectedTask.assignedBy.id !== selectedTask.assignedTo.id && (
+                          <button
+                            type="button"
+                            onClick={() => openDmWithUser(selectedTask.assignedBy.id)}
+                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50/80 text-[#002147] px-3.5 py-2 text-xs font-semibold hover:bg-[#002147] hover:text-white transition-all shadow-sm"
+                          >
+                            <MessageCircle className="h-4 w-4 shrink-0" />
+                            <span>Chat 1-on-1 with {selectedTask.assignedBy.name?.split(" ")[0] || "Assigner"}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
-                    <h4 className="text-sm font-semibold text-slate-700">Change task</h4>
-                    <div className="mt-3 space-y-3">
+                  <div className="rounded-xl border border-slate-200 p-4 min-w-0">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-700">Change task</h4>
+                    <div className="mt-3 space-y-3 min-w-0">
                       <div>
-                        <label className="mb-1 block text-sm text-slate-600">Status</label>
+                        <label className="mb-1 block text-xs font-medium text-slate-600">Status</label>
                         <select
                           value={statusValue}
                           onChange={(e) => setStatusValue(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm min-w-0"
                         >
                           <option value="PENDING">Assigned</option>
                           <option value="IN_PROGRESS">In progress</option>
@@ -351,11 +517,11 @@ export default function CrmDashboardClient({ currentUser, isAdmin, tasks: initia
 
                       {isAdmin && (
                         <div>
-                          <label className="mb-1 block text-sm text-slate-600">Reassign</label>
+                          <label className="mb-1 block text-xs font-medium text-slate-600">Reassign</label>
                           <select
                             value={assigneeValue}
                             onChange={(e) => setAssigneeValue(Number(e.target.value))}
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm truncate min-w-0"
                           >
                             {users.map((user) => (
                               <option key={user.id} value={user.id}>
@@ -370,48 +536,50 @@ export default function CrmDashboardClient({ currentUser, isAdmin, tasks: initia
                         type="button"
                         onClick={updateTask}
                         disabled={saving}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#002147] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#002147] px-4 py-2 text-xs sm:text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 w-full sm:w-auto"
                       >
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <ArrowRight className="h-4 w-4 shrink-0" />}
                         Save changes
                       </button>
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
-                    <h4 className="text-sm font-semibold text-slate-700">Updates</h4>
-                    <div className="mt-3 max-h-64 space-y-3 overflow-y-auto">
+                  <div className="rounded-xl border border-slate-200 p-4 min-w-0">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-700">Updates</h4>
+                    <div className="mt-3 max-h-64 space-y-2.5 overflow-y-auto min-w-0">
                       {selectedTask.updates.length === 0 && (
-                        <div className="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                        <div className="rounded-xl border border-dashed border-slate-200 p-3 text-xs text-slate-500">
                           No updates yet.
                         </div>
                       )}
                       {selectedTask.updates.map((update) => (
-                        <div key={update.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="text-sm font-medium">{update.author.name || update.author.email || "Team member"}</p>
-                            <span className="text-[11px] text-slate-500">{formatTime(update.createdAt)}</span>
+                        <div key={update.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 min-w-0 overflow-hidden">
+                          <div className="flex flex-wrap items-center justify-between gap-1 min-w-0">
+                            <p className="text-xs font-semibold text-slate-900 truncate">
+                              {update.author.name || update.author.email || "Team member"}
+                            </p>
+                            <span className="text-[10px] text-slate-400 shrink-0">{formatTime(update.createdAt)}</span>
                           </div>
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{update.message}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-xs text-slate-600 break-words leading-relaxed">{update.message}</p>
                         </div>
                       ))}
                     </div>
 
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-3 space-y-2 min-w-0">
                       <textarea
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
                         rows={3}
                         placeholder="Add a short update."
-                        className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
+                        className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm min-w-0"
                       />
                       <button
                         type="button"
                         onClick={sendNote}
                         disabled={sending || !note.trim()}
-                        className="inline-flex items-center gap-2 rounded-xl border border-[#002147] px-4 py-2.5 text-sm font-semibold text-[#002147] disabled:opacity-60"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#002147] px-4 py-2 text-xs sm:text-sm font-semibold text-[#002147] transition-colors hover:bg-slate-50 disabled:opacity-60 w-full sm:w-auto"
                       >
-                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <Send className="h-4 w-4 shrink-0" />}
                         Send update
                       </button>
                     </div>
@@ -422,19 +590,82 @@ export default function CrmDashboardClient({ currentUser, isAdmin, tasks: initia
           </aside>
         </div>
       </section>
+
+      {/* Edit Profile Modal */}
+      {isProfileModalOpen && (
+        <EditUserModal
+          user={{
+            id: currentUser.id,
+            name: currentUser.name || "",
+            email: currentUser.email || "",
+            role: currentUser.role,
+            department: currentUser.department || null,
+            employeeId: currentUser.employeeId || null,
+          }}
+          isSelfEdit={true}
+          onClose={() => setIsProfileModalOpen(false)}
+        />
+      )}
+
+      {/* Logout Confirmation Pop-up Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <LogOut className="h-6 w-6" />
+            </div>
+
+            <div className="mt-4 text-center">
+              <h3 className="text-lg font-semibold text-slate-900">Confirm Logout</h3>
+              <p className="mt-2 text-xs sm:text-sm text-slate-600">
+                Are you sure you want to log out of your CRM session?
+              </p>
+            </div>
+
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                disabled={loggingOut}
+                className="flex-1 rounded-xl border border-slate-300 bg-white py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setLoggingOut(true)
+                  await signOut({ callbackUrl: "/crm-dashboard/login" })
+                }}
+                disabled={loggingOut}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-60 shadow-sm"
+              >
+                {loggingOut ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                    <span>Logging out...</span>
+                  </>
+                ) : (
+                  <span>Log out</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
 
 function SummaryCard({ label, value, icon: Icon }: { label: string; value: number; icon: ComponentType<{ className?: string }> }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-semibold">{value}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm min-w-0">
+      <div className="flex items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{label}</p>
+          <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">{value}</p>
         </div>
-        <div className="rounded-xl bg-slate-100 p-2 text-slate-700">
+        <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700 shrink-0">
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -444,9 +675,11 @@ function SummaryCard({ label, value, icon: Icon }: { label: string; value: numbe
 
 function InfoTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <p className="mt-1 truncate text-sm font-medium text-slate-900">{value}</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-3 min-w-0 overflow-hidden">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+      <p className="mt-0.5 truncate text-xs sm:text-sm font-medium text-slate-900" title={value}>
+        {value}
+      </p>
     </div>
   )
 }
