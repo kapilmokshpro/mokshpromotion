@@ -45,7 +45,10 @@ enum InventorySiteMediaSource {
   MANUAL
 }
 
-
+enum ChatMessageType {
+  TEXT
+  VOICE
+}
 
 model User {
   id         Int      @id @default(autoincrement())
@@ -85,6 +88,11 @@ model User {
   tasksAssigned      WorkTask[]              @relation("TasksAssignedTo")
   tasksGiven         WorkTask[]              @relation("TasksAssignedBy")
   workTaskUpdates    WorkTaskUpdate[]        @relation("WorkTaskUpdateAuthor")
+
+  // Chat relations
+  chatChannelsCreated ChatChannel[]          @relation("ChatChannelCreator")
+  chatMemberships     ChatChannelMember[]    @relation("ChatMemberships")
+  chatMessages        ChatMessage[]          @relation("ChatMessagesSent")
 }
 
 // ... existing models ...
@@ -708,5 +716,57 @@ model WorkTaskUpdate {
 }
 
 
+// ==================== TEAM CHAT ====================
 
+model ChatChannel {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  isDirect    Boolean  @default(false)       // true = 1-on-1 DM channel
+  createdById Int
+  createdBy   User     @relation("ChatChannelCreator", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  messages    ChatMessage[]
+  members     ChatChannelMember[]
+
+  @@index([isDefault])
+  @@index([isDirect])
+}
+
+model ChatChannelMember {
+  id          String      @id @default(cuid())
+  channelId   String
+  channel     ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User        @relation("ChatMemberships", fields: [userId], references: [id])
+  lastReadAt  DateTime    @default(now())
+  joinedAt    DateTime    @default(now())
+
+  @@unique([channelId, userId])
+  @@index([userId])
+  @@index([channelId])
+}
+
+model ChatMessage {
+  id            String          @id @default(cuid())
+  channelId     String
+  channel       ChatChannel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  senderId      Int
+  sender        User            @relation("ChatMessagesSent", fields: [senderId], references: [id])
+
+  type          ChatMessageType @default(TEXT)
+  content       String?
+  mediaUrl      String?
+  mediaKey      String?
+  mediaDuration Int?
+
+  isSystem      Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([channelId, createdAt])
+  @@index([senderId])
+}
