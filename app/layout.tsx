@@ -19,6 +19,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta
+          name="google-site-verification"
+          content="2R37BA24H0aGbBg49qpZ7h_vLIHGl_Afk63JV7-vooA"
+        />
+      </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
