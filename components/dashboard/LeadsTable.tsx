@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Edit2, UserPlus, Loader2, Search, User, Trash2, Tag } from "lucide-react"
+import { Edit2, UserPlus, Loader2, Search, User, Trash2, Tag, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter } from "lucide-react"
 import { TableShell, Badge, EmptyState } from "./DashboardComponents"
 import { formatDateInIndia } from "@/lib/utils"
 
@@ -22,6 +22,7 @@ interface Lead {
     opsUser?: { name: string } | null
     logs?: any[]
     baseTotal: number
+    finalTotal?: number | null
 }
 
 interface User {
@@ -44,6 +45,11 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [updating, setUpdating] = useState(false)
     const [searchTerm, setSearchTerm] = useState("")
+
+    // Pagination & Filtering state
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage, setItemsPerPage] = useState(10)
+    const [statusFilter, setStatusFilter] = useState("ALL")
 
     // Form Stats
     const [formData, setFormData] = useState<{
@@ -160,88 +166,140 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
         }
     }
 
-    const filteredLeads = leads.filter(l =>
-        l.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        l.phone.includes(searchTerm)
-    )
+    const filteredLeads = leads.filter(l => {
+        const matchesSearch =
+            l.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            l.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            l.phone.includes(searchTerm)
+        const matchesStatus = statusFilter === "ALL" || l.status === statusFilter
+        return matchesSearch && matchesStatus
+    })
+
+    const totalPages = Math.ceil(filteredLeads.length / itemsPerPage) || 1
+    const safeCurrentPage = Math.min(currentPage, totalPages)
+    const startIndex = (safeCurrentPage - 1) * itemsPerPage
+    const endIndex = Math.min(startIndex + itemsPerPage, filteredLeads.length)
+    const paginatedLeads = filteredLeads.slice(startIndex, endIndex)
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value)
+        setCurrentPage(1)
+    }
+
+    const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setStatusFilter(e.target.value)
+        setCurrentPage(1)
+    }
+
+    const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setItemsPerPage(Number(e.target.value))
+        setCurrentPage(1)
+    }
 
     return (
         <div className="space-y-4">
             {/* Table Actions */}
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                <div className="relative w-full sm:w-64">
-                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Search leads..."
-                        className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:w-64">
+                        <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search leads..."
+                            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all"
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                        />
+                    </div>
+                    <div className="relative">
+                        <select
+                            value={statusFilter}
+                            onChange={handleStatusFilterChange}
+                            className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all cursor-pointer"
+                        >
+                            <option value="ALL">All Statuses</option>
+                            <option value="NEW">New</option>
+                            <option value="FOLLOW_UP">Follow Up</option>
+                            <option value="INTERESTED">Interested</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="DEAL_CLOSED">Deal Closed</option>
+                            <option value="LOST">Lost</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
             <TableShell>
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-100">
+                    <table className="min-w-full divide-y divide-gray-100 table-auto">
                         <thead className="bg-gray-50/50">
                             <tr>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name / Contact</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Latest Remark</th>
-                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assignee</th>
-                                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name / Contact</th>
+                                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Quote</th>
+                                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Latest Remark</th>
+                                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Assignee</th>
+                                <th className="px-4 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-50">
                             {filteredLeads.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5}>
+                                    <td colSpan={6}>
                                         <div className="py-12">
                                             <EmptyState
                                                 title="No leads found"
-                                                description={searchTerm ? "Try adjusting your search filters" : "No leads have been added yet."}
+                                                description={searchTerm || statusFilter !== "ALL" ? "Try adjusting your search or status filters" : "No leads have been added yet."}
                                                 image={<User className="w-8 h-8 text-gray-300" />}
                                             />
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
-                                filteredLeads.map((lead) => (
+                                paginatedLeads.map((lead) => (
                                     <tr key={lead.id} className="hover:bg-blue-50/30 transition-colors group">
-                                        <td className="px-6 py-4">
+                                        <td className="px-4 py-3.5">
                                             <div className="text-sm font-semibold text-gray-900">{lead.customerName}</div>
-                                            <div className="text-sm text-gray-500">{lead.phone}</div>
-                                            <div className="text-xs text-gray-400">{lead.email}</div>
+                                            <div className="text-xs text-gray-500">{lead.phone} {lead.email ? `• ${lead.email}` : ''}</div>
+                                            <div className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1.5">
+                                                <span>{formatDateInIndia(lead.createdAt)}</span>
+                                                {lead.source && (
+                                                    <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                                                        {lead.source}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-4 py-3.5 whitespace-nowrap">
                                             <Badge variant={getStatusBadgeVariant(lead.status)}>
                                                 {lead.status.replace('_', ' ')}
                                             </Badge>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                                        <td className="px-4 py-3.5 whitespace-nowrap text-sm font-mono font-medium text-gray-900">
+                                            ₹{Number(lead.finalTotal || lead.baseTotal || 0).toLocaleString('en-IN')}
+                                        </td>
+                                        <td className="px-4 py-3.5 text-sm text-gray-500 max-w-xs">
                                             {lead.logs && lead.logs.length > 0 ? (
                                                 <div className="flex flex-col gap-0.5">
                                                     <span className="text-xs font-bold text-gray-700 flex items-center gap-1">
                                                         {lead.logs[0].user?.name}
                                                         <span className="text-[10px] font-normal text-gray-400">({formatDateInIndia(lead.logs[0].createdAt)})</span>
                                                     </span>
-                                                    <span className="truncate block text-gray-600" title={lead.logs[0].details}>
+                                                    <span className="truncate block text-gray-600 text-xs" title={lead.logs[0].details}>
                                                         {lead.logs[0].details}
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <div className="truncate text-gray-400 italic" title={lead.notes || ""}>
+                                                <div className="truncate text-gray-400 italic text-xs" title={lead.notes || ""}>
                                                     {lead.notes || "No remarks"}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500">
                                             {lead.assigneeId ? (
                                                 <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-gray-50 border border-gray-100 text-xs w-fit">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                                    User #{lead.assigneeId}
+                                                    {lead.assignee?.name || `User #${lead.assigneeId}`}
                                                 </span>
                                             ) : (
                                                 <span className="text-orange-500 flex items-center gap-1.5 text-xs font-medium">
@@ -250,8 +308,8 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                        <td className="px-4 py-3.5 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex justify-end gap-1.5">
                                                 <button
                                                     onClick={() => router.push(`/dashboard/sales/leads/${lead.id}`)}
                                                     className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-md flex items-center gap-1 text-xs transition-colors"
@@ -302,6 +360,95 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
                     </table>
                 </div>
             </TableShell>
+
+            {/* Pagination Controls */}
+            {filteredLeads.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white border border-gray-200/80 rounded-xl shadow-sm">
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                        <span>
+                            Showing <span className="font-semibold text-gray-900">{startIndex + 1}</span> to{" "}
+                            <span className="font-semibold text-gray-900">{endIndex}</span> of{" "}
+                            <span className="font-semibold text-gray-900">{filteredLeads.length}</span> leads
+                        </span>
+                        <div className="flex items-center gap-1.5 text-xs border-l border-gray-200 pl-4">
+                            <span>Per page:</span>
+                            <select
+                                value={itemsPerPage}
+                                onChange={handleItemsPerPageChange}
+                                className="bg-gray-50 border border-gray-200 text-gray-700 text-xs rounded-md px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+                            >
+                                <option value={10}>10</option>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={safeCurrentPage === 1}
+                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600 transition-colors"
+                            title="First page"
+                        >
+                            <ChevronsLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={safeCurrentPage === 1}
+                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600 transition-colors flex items-center gap-1 text-xs font-medium px-2.5"
+                        >
+                            <ChevronLeft className="w-4 h-4" /> Prev
+                        </button>
+
+                        <div className="flex items-center gap-1 px-1">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(p => p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 1)
+                                .reduce((acc: (number | string)[], p, idx, arr) => {
+                                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                                        acc.push('...')
+                                    }
+                                    acc.push(p)
+                                    return acc
+                                }, [])
+                                .map((pageItem, index) => (
+                                    typeof pageItem === 'number' ? (
+                                        <button
+                                            key={index}
+                                            onClick={() => setCurrentPage(pageItem)}
+                                            className={`min-w-[2rem] h-8 text-xs font-semibold rounded-lg transition-colors ${
+                                                safeCurrentPage === pageItem
+                                                    ? "bg-[#002147] text-white shadow-sm"
+                                                    : "hover:bg-gray-100 text-gray-700"
+                                            }`}
+                                        >
+                                            {pageItem}
+                                        </button>
+                                    ) : (
+                                        <span key={index} className="text-xs text-gray-400 px-1 select-none">...</span>
+                                    )
+                                ))}
+                        </div>
+
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={safeCurrentPage === totalPages}
+                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600 transition-colors flex items-center gap-1 text-xs font-medium px-2.5"
+                        >
+                            Next <ChevronRight className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={safeCurrentPage === totalPages}
+                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed text-gray-600 transition-colors"
+                            title="Last page"
+                        >
+                            <ChevronsRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Edit Modal */}
             {isEditOpen && selectedLead && (
