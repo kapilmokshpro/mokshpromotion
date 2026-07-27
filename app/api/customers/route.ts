@@ -32,14 +32,25 @@ export async function GET(req: Request) {
             return new NextResponse("Unauthorized", { status: 401 })
         }
 
-        const customers = await db.customer.findMany({
+        const { searchParams } = new URL(req.url)
+        const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : null
+        const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : null
+
+        const queryOptions: any = {
             orderBy: { createdAt: 'desc' },
             include: {
                 _count: {
                     select: { projects: true }
                 }
             }
-        })
+        }
+
+        if (page && limit && page > 0 && limit > 0) {
+            queryOptions.skip = (page - 1) * limit
+            queryOptions.take = limit
+        }
+
+        const customers = await db.customer.findMany(queryOptions)
 
         return NextResponse.json(customers)
     } catch (error) {
