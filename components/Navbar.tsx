@@ -13,7 +13,11 @@ export default function Navbar() {
     const { data: session } = useSession();
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
+    const [openMobileSubmenu, setOpenMobileSubmenu] = useState<string | null>(null);
+
+    const toggleSubmenu = (name: string) => {
+        setOpenMobileSubmenu((prev) => (prev === name ? null : name));
+    };
 
     useEffect(() => {
         const handleScroll = () => {
@@ -22,6 +26,17 @@ export default function Navbar() {
         window.addEventListener("scroll", handleScroll);
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
+
+    useEffect(() => {
+        if (mobileMenuOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [mobileMenuOpen]);
 
     const isActive = (path: string) => {
         if (path === "/") {
@@ -157,68 +172,72 @@ export default function Navbar() {
 
             {/* Mobile Menu Dropdown */}
             {mobileMenuOpen && (
-                <div className="md:hidden bg-[#002147] border-t border-white/10 absolute w-full left-0 animate-fade-in-up shadow-xl h-screen overflow-y-auto pb-20">
-                    <div className="px-4 pt-2 pb-6 space-y-4 flex flex-col items-center">
-                        {navLinks.map((link) => (
-                            <div key={link.name} className="w-full flex flex-col items-center">
-                                {link.children ? (
-                                    <>
-                                        <button
-                                            onClick={() => setMobileServicesOpen(!mobileServicesOpen)}
-                                            className={`flex items-center gap-2 text-base font-medium py-2 ${isActive(link.path) || mobileServicesOpen ? "text-white" : "text-gray-400"}`}
+                <div className="md:hidden bg-[#002147] border-t border-white/10 fixed inset-x-0 top-[64px] bottom-0 z-[60] animate-fade-in-up shadow-xl overflow-y-auto pb-24">
+                    <div className="px-4 pt-3 pb-8 space-y-4 flex flex-col items-center">
+                        {navLinks.map((link) => {
+                            const isSubmenuOpen = openMobileSubmenu === link.name;
+                            return (
+                                <div key={link.name} className="w-full flex flex-col items-center">
+                                    {link.children ? (
+                                        <>
+                                            <button
+                                                onClick={() => toggleSubmenu(link.name)}
+                                                className={`flex items-center gap-2 text-base font-medium py-2 ${isActive(link.path) || isSubmenuOpen ? "text-white" : "text-gray-400"}`}
+                                            >
+                                                {link.name}
+                                                <ChevronDown className={`w-4 h-4 transition-transform ${isSubmenuOpen ? "rotate-180" : ""}`} />
+                                            </button>
+
+                                            {/* Mobile Submenu */}
+                                            {isSubmenuOpen && (
+                                                <div className="w-full flex flex-col items-center bg-[#00152e] rounded-md py-2 mt-1 space-y-2">
+                                                    {link.children.map((child) => (
+                                                        <Link
+                                                            key={child.name}
+                                                            href={child.path}
+                                                            prefetch={false}
+                                                            onClick={() => setMobileMenuOpen(false)}
+                                                            className={`text-sm text-gray-400 hover:text-white py-1.5 ${child.separator ? "font-bold text-white border-b border-white/10 w-3/4 text-center mb-1" : ""}`}
+                                                        >
+                                                            {child.name}
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <Link
+                                            href={link.path}
+                                            prefetch={false}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className={`text-base font-medium py-2 ${isActive(link.path) ? "text-white" : "text-gray-400"}`}
                                         >
                                             {link.name}
-                                            <ChevronDown className={`w-4 h-4 transition-transform ${mobileServicesOpen ? "rotate-180" : ""}`} />
-                                        </button>
-
-                                        {/* Mobile Submenu */}
-                                        {mobileServicesOpen && (
-                                            <div className="w-full flex flex-col items-center bg-[#00152e] rounded-md py-2 mt-1 space-y-2">
-                                                {link.children.map((child) => (
-                                                    <Link
-                                                        key={child.name}
-                                                        href={child.path}
-                                                        prefetch={false}
-                                                        onClick={() => setMobileMenuOpen(false)}
-                                                        className={`text-sm text-gray-400 hover:text-white py-1.5 ${child.separator ? "font-bold text-white border-b border-white/10 w-3/4 text-center mb-1" : ""}`}
-                                                    >
-                                                        {child.name}
-                                                    </Link>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <Link
-                                        href={link.path}
-                                        prefetch={false}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className={`text-base font-medium py-2 ${isActive(link.path) ? "text-white" : "text-gray-400"
-                                            }`}
-                                    >
-                                        {link.name}
-                                    </Link>
-                                )}
-                            </div>
-                        ))}
+                                        </Link>
+                                    )}
+                                </div>
+                            );
+                        })}
                         <div className="h-px w-full bg-white/10 my-2"></div>
+                        <div className="w-full grid grid-cols-2 gap-3 mt-2">
+                            <Link
+                                href="/contact"
+                                prefetch={false}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="w-full text-center bg-white text-[#002147] font-bold py-3 px-2 rounded-md text-sm transition-all hover:bg-slate-100 flex items-center justify-center shadow-sm"
+                            >
+                                Get in Touch
+                            </Link>
+                            <Link
+                                href={crmHref}
+                                prefetch={false}
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="w-full text-center border border-amber-400/35 bg-amber-400/10 text-amber-100 font-semibold py-3 px-2 rounded-md text-sm transition-all hover:bg-amber-400/20 flex items-center justify-center shadow-sm"
+                            >
+                                CRM
+                            </Link>
+                        </div>
                         <UserMenu mobile />
-                        <Link
-                            href="/contact"
-                            prefetch={false}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="w-full text-center bg-white text-[#002147] font-bold py-3 rounded-md mt-4"
-                        >
-                            Get in Touch
-                        </Link>
-                        <Link
-                            href={crmHref}
-                            prefetch={false}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="w-full text-center border border-amber-400/35 bg-amber-400/10 text-amber-100 font-semibold py-3 rounded-md mt-4"
-                        >
-                            CRM
-                        </Link>
                     </div>
                 </div>
             )}
@@ -248,7 +267,7 @@ function UserMenu({ mobile }: { mobile?: boolean }) {
         return (
             <Link
                 href="/client-login"
-                className={`text-sm font-medium hover:text-white transition-colors ${mobile ? "text-gray-300 text-lg" : "text-gray-300"}`}
+                className={`text-sm font-medium hover:text-white transition-colors ${mobile ? "text-gray-300 text-base" : "text-gray-300"}`}
             >
                 Login
             </Link>
@@ -257,15 +276,22 @@ function UserMenu({ mobile }: { mobile?: boolean }) {
 
     if (mobile) {
         return (
-            <div className="flex flex-col items-center gap-4 w-full">
-                <div className="flex items-center gap-2 text-white">
-                    <User className="w-5 h-5" />
-                    <span className="font-medium">{session.user?.name}</span>
+            <div className="flex items-center justify-between gap-3 w-full pt-3 border-t border-white/10 mt-3">
+                <div className="flex items-center gap-2 text-white min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
+                        {session.user?.name?.charAt(0).toUpperCase() || <User className="w-4 h-4" />}
+                    </div>
+                    <span className="font-semibold text-sm truncate">{session.user?.name}</span>
+                    {(session.user as any)?.role === 'ADMIN' && (
+                        <Link href="/dashboard/admin" className="text-[11px] font-semibold text-amber-300 bg-amber-400/20 border border-amber-400/30 px-1.5 py-0.5 rounded shrink-0">
+                            Admin
+                        </Link>
+                    )}
                 </div>
-                {(session.user as any)?.role === 'ADMIN' && (
-                    <Link href="/dashboard/admin" className="text-gray-400 text-sm">Admin Dashboard</Link>
-                )}
-                <button onClick={() => signOut({ callbackUrl: '/' })} className="text-red-400 text-sm">
+                <button
+                    onClick={() => signOut({ callbackUrl: '/' })}
+                    className="text-red-400 hover:text-red-300 font-medium text-xs border border-red-400/30 bg-red-500/10 px-3 py-1.5 rounded-md transition-all shrink-0 ml-auto"
+                >
                     Sign Out
                 </button>
             </div>
